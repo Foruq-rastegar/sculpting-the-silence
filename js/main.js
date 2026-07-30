@@ -721,24 +721,6 @@
       }
     }
 
-    // Shared by the normal "retry" path and the s3_mom_06 experiment
-    // below: shows attempt.nextMessage (if any) before the next cta.
-    function advanceToNextAttempt(index, attempt) {
-      var nextMessage = attempt.nextMessage;
-      if (nextMessage) {
-        // Retype the frame's message before the next attempt's cta — an
-        // absolute size for this retyping only, never cumulative.
-        textEl.style.fontSize = nextMessage.fontSizeDeltaPx
-          ? "calc(var(--font-size-body) + " + nextMessage.fontSizeDeltaPx + "px)"
-          : "";
-        typeText(textEl, nextMessage.text, 14, function () {
-          showAttemptButton(index + 1);
-        });
-      } else {
-        showAttemptButton(index + 1);
-      }
-    }
-
     function showResponse(index) {
       actionEl.innerHTML = ""; // instant, no fade
       var attempt = data.attempts[index];
@@ -775,12 +757,6 @@
       // (same as image/audio/video) when it's the final attempt.
       if (isFinalAttempt) {
         clearMessageText();
-      } else if (attempt.skipResponseText) {
-        // EXPERIMENT (s3_mom_06 only): no response-text dwell at all —
-        // go straight to the next attempt's cta as soon as the spinner
-        // ends, per attempt.skipResponseText.
-        advanceToNextAttempt(index, attempt);
-        return;
       } else if (attempt.showResponseWithNextCta) {
         // EXPERIMENT (s3_mom_05 only): the response text and the next
         // attempt's cta appear at the same time — text above the
@@ -803,7 +779,19 @@
       } else {
         setTimeout(function () {
           actionEl.innerHTML = ""; // instant, no fade
-          advanceToNextAttempt(index, attempt);
+          var nextMessage = attempt.nextMessage;
+          if (nextMessage) {
+            // Retype the frame's message before the next attempt's cta —
+            // an absolute size for this retyping only, never cumulative.
+            textEl.style.fontSize = nextMessage.fontSizeDeltaPx
+              ? "calc(var(--font-size-body) + " + nextMessage.fontSizeDeltaPx + "px)"
+              : "";
+            typeText(textEl, nextMessage.text, 14, function () {
+              showAttemptButton(index + 1);
+            });
+          } else {
+            showAttemptButton(index + 1);
+          }
         }, 700);
       }
     }
@@ -957,10 +945,8 @@
   var WHAT_IS_HAPPENING_MESSAGE_DATA = {
     message: "What is happening there?",
     attempts: [
-      // EXPERIMENT (this moment only): skipResponseText suppresses the
-      // "No connection" response step entirely — see showResponse.
-      { cta: "send", loadSpins: 4, response: { type: "text", value: "No connection" }, skipResponseText: true },
-      { cta: "Try again", loadSpins: 3, response: { type: "text", value: "No connection" }, skipResponseText: true },
+      { cta: "send", loadSpins: 4, response: { type: "text", value: "No connection" } },
+      { cta: "Try again", loadSpins: 3, response: { type: "text", value: "No connection" } },
       { cta: "Try again", loadSpins: 2, response: { type: "image", value: "assets/images/s3_leak_02_img.png" } }
     ]
   };
