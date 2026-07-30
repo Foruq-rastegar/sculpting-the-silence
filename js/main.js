@@ -556,6 +556,25 @@
       }
     }
 
+    // Every stage-3 leak image (standalone or within a chain): a slow,
+    // gentle zoom-in over the image's full display duration, so it's
+    // subtly still growing right up until it's cleared from the screen.
+    function renderZoomingLeakImage(mountEl, src, durationMs, onDone) {
+      var img = document.createElement("img");
+      img.className = "message-moment__response-image";
+      img.src = src;
+      img.alt = "";
+      mountEl.appendChild(img);
+
+      img.style.transition = "transform " + durationMs + "ms linear";
+      img.getBoundingClientRect(); // force reflow before enabling the transition
+      requestAnimationFrame(function () {
+        img.style.transform = "scale(1.08)";
+      });
+
+      setTimeout(onDone, durationMs);
+    }
+
     // Plays the exit half of s3_mom_10's one-off transition: the given
     // element slides up and fades out over ~500ms, then is removed.
     function slideOutThenRemove(el, onDone) {
@@ -638,12 +657,7 @@
       }
 
       if (item.type === "image") {
-        var img = document.createElement("img");
-        img.className = "message-moment__response-image";
-        img.src = item.value;
-        img.alt = "";
-        actionEl.appendChild(img);
-        setTimeout(advanceChain, item.displayMs || 3500);
+        renderZoomingLeakImage(actionEl, item.value, item.displayMs || 3500, advanceChain);
         return;
       }
 
@@ -740,12 +754,7 @@
 
       if (response.type === "image") {
         clearMessageText();
-        var img = document.createElement("img");
-        img.className = "message-moment__response-image";
-        img.src = response.value;
-        img.alt = "";
-        actionEl.appendChild(img);
-        setTimeout(finishMoment, 3500);
+        renderZoomingLeakImage(actionEl, response.value, 3500, finishMoment);
         return;
       }
 
