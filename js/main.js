@@ -1049,6 +1049,10 @@
      audio ending), then shows the cta. Ends with one auto-advancing
      moment (no button, no audio) after all named moments are done.
      ------------------------------------------------------------------ */
+  // Stage-4-only override: a bit faster than the app's global typing
+  // rate (14 chars/sec, used by stages 2-3). Doesn't affect them.
+  var STAGE_4_CHARS_PER_SECOND = 20;
+
   var NAME_MOMENTS_DATA = [
     { name: "Reza Moradi", subtext: "Perhaps he had braided a lover's hair.", audio: "assets/audio/s4_name_01_snd.mp3" },
     { name: "Sogand Mansoori", age: "14 years old", subtext: "Perhaps she had once danced at a friend's party.", audio: "assets/audio/s4_name_02_snd.mp3" },
@@ -1104,13 +1108,13 @@
       presentCtaButton(button);
     }
 
-    typeText(nameEl, data.name, 14, function () {
+    typeText(nameEl, data.name, STAGE_4_CHARS_PER_SECOND, function () {
       if (ageEl) {
-        typeText(ageEl, data.age, 14, function () {
-          typeText(subtextEl, data.subtext, 14, showButton);
+        typeText(ageEl, data.age, STAGE_4_CHARS_PER_SECOND, function () {
+          typeText(subtextEl, data.subtext, STAGE_4_CHARS_PER_SECOND, showButton);
         });
       } else {
-        typeText(subtextEl, data.subtext, 14, showButton);
+        typeText(subtextEl, data.subtext, STAGE_4_CHARS_PER_SECOND, showButton);
       }
     });
   }
@@ -1145,11 +1149,11 @@
     subtextEl.className = "frame__body";
     containerEl.appendChild(subtextEl);
 
-    typeText(titleEl, "11780", 14, function () {
+    typeText(titleEl, "11780", STAGE_4_CHARS_PER_SECOND, function () {
       typeText(
         subtextEl,
         "Their body, perhaps, was never identified by their family. But there might still be a human to call them by a name, to recall them by a memory…",
-        14,
+        STAGE_4_CHARS_PER_SECOND,
         function () {
           setTimeout(function () {
             containerEl.innerHTML = ""; // instant, no fade
