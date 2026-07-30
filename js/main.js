@@ -9,7 +9,7 @@
 (function () {
   "use strict";
 
-  var TOTAL_STAGES = 3; // bump as stages 4-5 are added
+  var TOTAL_STAGES = 5; // bump as more stages are added
   var currentStage = 1;
 
   // Stages that run automatically (no button) register a one-time
@@ -548,11 +548,66 @@
       }
     }
 
+    // Plays the exit half of s3_mom_10's one-off transition: the given
+    // element slides up and fades out over ~500ms, then is removed.
+    function slideOutThenRemove(el, onDone) {
+      el.classList.add("message-moment__response-text--exit");
+      setTimeout(function () {
+        el.remove();
+        onDone();
+      }, 500);
+    }
+
+    // Plays the enter half: video (and optional caption) mount in a
+    // pre-transition "below and faded out" state, then a forced reflow +
+    // rAF removes that state so the transition to normal plays.
+    function playLeakVideoWithSlideFadeIn(mountEl, item, onEnded) {
+      var wrapperEl = document.createElement("div");
+      wrapperEl.className = "message-moment__video-response";
+      mountEl.appendChild(wrapperEl);
+
+      var video = document.createElement("video");
+      video.className = "message-moment__response-video message-moment__response-video--enter";
+      video.src = item.value;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.preload = "none";
+      wrapperEl.appendChild(video);
+
+      var captionEl = null;
+      if (item.caption) {
+        captionEl = document.createElement("p");
+        captionEl.className = "frame__body message-moment__response-video-caption message-moment__response-video-caption--enter";
+        captionEl.textContent = item.caption;
+        wrapperEl.appendChild(captionEl);
+      }
+
+      video.getBoundingClientRect(); // force reflow before enabling the transition
+      requestAnimationFrame(function () {
+        video.classList.remove("message-moment__response-video--enter");
+        if (captionEl) captionEl.classList.remove("message-moment__response-video-caption--enter");
+      });
+
+      var handleEnded = function () {
+        video.removeEventListener("ended", handleEnded);
+        onEnded();
+      };
+      video.addEventListener("ended", handleEnded);
+      video.load();
+      var playPromise = video.play();
+      if (playPromise && playPromise.catch) {
+        playPromise.catch(function () {});
+      }
+    }
+
     // A response can be an ordered array of leaks (e.g. text caption then
     // video) shown one after another instead of a single response; the
     // whole chain is terminal, so it only ever runs once the message text
-    // has already been cleared by the caller.
-    function showLeakChain(responses, chainIndex) {
+    // has already been cleared by the caller. chainTransition is an
+    // opt-in per-attempt flag: "slide-fade" plays s3_mom_10's one-off
+    // typed-text-slides-out / video-slides-in transition; everywhere else
+    // it's undefined and every chain step stays instant, as before.
+    function showLeakChain(responses, chainIndex, chainTransition) {
       actionEl.innerHTML = ""; // instant, no fade
       var item = responses[chainIndex];
       var isLastInChain = chainIndex === responses.length - 1;
@@ -561,12 +616,16 @@
         if (isLastInChain) {
           finishMoment();
         } else {
-          showLeakChain(responses, chainIndex + 1);
+          showLeakChain(responses, chainIndex + 1, chainTransition);
         }
       }
 
       if (item.type === "video") {
-        playLeakVideo(actionEl, item.value, advanceChain);
+        if (chainTransition === "slide-fade") {
+          playLeakVideoWithSlideFadeIn(actionEl, item, advanceChain);
+        } else {
+          playLeakVideo(actionEl, item.value, advanceChain);
+        }
         return;
       }
 
@@ -581,6 +640,18 @@
       }
 
       // type === "text"
+      if (chainTransition === "slide-fade") {
+        var typedTextEl = document.createElement("p");
+        typedTextEl.className = "frame__body message-moment__response-text";
+        actionEl.appendChild(typedTextEl);
+        typeText(typedTextEl, item.value, 14, function () {
+          setTimeout(function () {
+            slideOutThenRemove(typedTextEl, advanceChain);
+          }, 600);
+        });
+        return;
+      }
+
       var chainTextEl = document.createElement("p");
       chainTextEl.className = "frame__body message-moment__response-text";
       chainTextEl.textContent = item.value;
@@ -630,13 +701,14 @@
 
     function showResponse(index) {
       actionEl.innerHTML = ""; // instant, no fade
-      var response = data.attempts[index].response;
+      var attempt = data.attempts[index];
+      var response = attempt.response;
       var isFinalAttempt = index === data.attempts.length - 1;
 
       if (Array.isArray(response)) {
         // A leak chain is always terminal.
         clearMessageText();
-        showLeakChain(response, 0);
+        showLeakChain(response, 0, attempt.chainTransition);
         return;
       }
 
@@ -680,7 +752,19 @@
       } else {
         setTimeout(function () {
           actionEl.innerHTML = ""; // instant, no fade
-          showAttemptButton(index + 1);
+          var nextMessage = attempt.nextMessage;
+          if (nextMessage) {
+            // Retype the frame's message before the next attempt's cta —
+            // an absolute size for this retyping only, never cumulative.
+            textEl.style.fontSize = nextMessage.fontSizeDeltaPx
+              ? "calc(var(--font-size-body) + " + nextMessage.fontSizeDeltaPx + "px)"
+              : "";
+            typeText(textEl, nextMessage.text, 14, function () {
+              showAttemptButton(index + 1);
+            });
+          } else {
+            showAttemptButton(index + 1);
+          }
         }, 700);
       }
     }
@@ -714,10 +798,12 @@
   /* ------------------------------------------------------------------
      "Name them" moment — stage 3's closing moment (s3_mom_12). Not a
      message-moment attempt ladder: no spinner, and its cta chain is
-     intro -> search -> (persistent image + caption) -> more/more/.../
-     more -> finalCta -> full-black beat -> onComplete. The image and
-     caption, once shown, stay put for the rest of the sequence; only
-     the reaction text and button beneath them change.
+     intro -> search -> image + typed caption -> more (shrinks the image
+     into its permanent spot, then types reactions[0]) -> more/more/...
+     -> finalCta -> full-black beat -> onComplete. The caption and every
+     reaction after it are typed into the same "zone" beneath the image;
+     the image itself persists once shown, only shrinking once on the
+     first "more" click.
      ------------------------------------------------------------------ */
   function runNameThemMoment(containerEl, data, onComplete) {
     if (!containerEl) return;
@@ -744,18 +830,24 @@
       presentCtaButton(button);
     }
 
+    // Creates (or instantly swaps in) the paragraph used for both the
+    // caption and every reaction after it — one shared "zone" beneath
+    // the image, per the spec's "same zone reactions will later use".
+    function freshZoneTextEl() {
+      var existing = containerEl.querySelector(".name-them-moment__zone-text");
+      if (existing) existing.remove(); // instant, no fade — image untouched
+      var zoneTextEl = document.createElement("p");
+      zoneTextEl.className = "frame__body message-moment__response-text name-them-moment__zone-text";
+      imageWrapEl.insertAdjacentElement("afterend", zoneTextEl);
+      return zoneTextEl;
+    }
+
     function showReaction(reactionIndex) {
       actionEl.innerHTML = ""; // instant, no fade — button gone while this reaction types in
-
-      var reactionText = document.createElement("p");
-      reactionText.className = "frame__body message-moment__response-text name-them-moment__reaction";
-
-      var existingReaction = containerEl.querySelector(".name-them-moment__reaction");
-      if (existingReaction) existingReaction.remove(); // instant, no fade — image/caption untouched
-      imageWrapEl.insertAdjacentElement("afterend", reactionText);
+      var zoneTextEl = freshZoneTextEl();
 
       var isLastReaction = reactionIndex === data.reactions.length - 1;
-      typeText(reactionText, data.reactions[reactionIndex], 14, function () {
+      typeText(zoneTextEl, data.reactions[reactionIndex], 14, function () {
         if (isLastReaction) {
           showButton(data.finalCta, finish);
         } else {
@@ -766,16 +858,20 @@
       });
     }
 
-    function showImageAndReactions() {
+    // First "more" click only: shrinks the image into its permanent
+    // spot/size, then starts the reaction chain.
+    function shrinkImageThenShowFirstReaction() {
+      imageWrapEl.classList.add("name-them-moment__image-wrap--shrunk");
+      setTimeout(function () {
+        showReaction(0);
+      }, 500); // matches the shrink transition duration
+    }
+
+    function showImage() {
       textEl.remove(); // leak rule: text and leak never coexist, instant
 
       imageWrapEl = document.createElement("div");
       imageWrapEl.className = "name-them-moment__image-wrap";
-
-      var captionEl = document.createElement("p");
-      captionEl.className = "frame__body";
-      captionEl.textContent = data.image.caption;
-      imageWrapEl.appendChild(captionEl);
 
       var imgEl = document.createElement("img");
       imgEl.className = "message-moment__response-image";
@@ -785,18 +881,19 @@
 
       containerEl.insertBefore(imageWrapEl, actionEl);
 
-      showButton(data.reactionCta, function () {
-        showReaction(0);
+      var zoneTextEl = freshZoneTextEl();
+      typeText(zoneTextEl, data.captionBelow, 14, function () {
+        showButton(data.reactionCta, shrinkImageThenShowFirstReaction);
       });
     }
 
     function finish() {
-      containerEl.innerHTML = ""; // instant, no fade — image, caption, text, button all gone
+      containerEl.innerHTML = ""; // instant, no fade — image, text, button all gone
       coverViewportInBlack(1000, onComplete);
     }
 
     typeText(textEl, data.intro.text, 14, function () {
-      showButton(data.intro.cta, showImageAndReactions);
+      showButton(data.intro.cta, showImage);
     });
   }
 
@@ -836,12 +933,23 @@
   };
 
   var AIDA_MESSAGE_DATA = {
-    message: "Aidaaaaaaaaaaaaaaaaa????????????????",
+    message: "Aida??????",
     attempts: [
-      { cta: "Connect", loadSpins: 4, response: { type: "text", value: "No connection" } },
+      {
+        cta: "Connect",
+        loadSpins: 2,
+        response: { type: "text", value: "No connection" },
+        nextMessage: { text: "Aidaaaaa???????????" }
+      },
       {
         cta: "Try again",
         loadSpins: 3,
+        response: { type: "text", value: "No connection" },
+        nextMessage: { text: "Aidaaaaa???????????", fontSizeDeltaPx: 2 }
+      },
+      {
+        cta: "Pleaaaaaaaase",
+        loadSpins: 4,
         response: {
           type: "audio",
           value: "assets/audio/s3_leak_04_snd.mp3",
@@ -854,7 +962,13 @@
   var ALI_MESSAGE_DATA = {
     message: "Aliii?????",
     attempts: [
-      { cta: "Connect", loadSpins: 2, response: { type: "image", value: "assets/images/s3_leak_05_img.png" } }
+      {
+        cta: "Connect",
+        loadSpins: 3,
+        response: { type: "text", value: "No conn…" },
+        nextMessage: { text: "Ali jan?", fontSizeDeltaPx: 2 }
+      },
+      { cta: "Connect", loadSpins: 4, response: { type: "image", value: "assets/images/s3_leak_05_img.png" } }
     ]
   };
 
@@ -864,19 +978,32 @@
       {
         cta: "Connect",
         loadSpins: 1,
+        // chainTransition: "slide-fade" is the one-off exception noted in
+        // showLeakChain — typed text slides up/out, then the video (with
+        // its caption) slides/fades in. Every other chain stays instant.
         response: [
-          { type: "text", value: "Don't weep for my death. Dance!", displayMs: 3000 },
-          { type: "video", value: "assets/video/s3_leak_07_vid.mp4" }
-        ]
+          { type: "text", value: "Don't weep for my death. Dance!" },
+          {
+            type: "video",
+            value: "assets/video/s3_leak_07_vid.mp4",
+            caption: "Moments of Dance at the Funerals"
+          }
+        ],
+        chainTransition: "slide-fade"
       }
     ]
   };
 
   var JUST_LET_ME_KNOW_MESSAGE_DATA = {
-    message: "Just let me know you are alive!! I'm begging you …",
+    message: "Just let me know you are alive!!",
     attempts: [
-      { cta: "send", loadSpins: 2, response: { type: "text", value: "No connection" } },
-      { cta: "Try again", loadSpins: 3, response: { type: "text", value: "#11780" } }
+      {
+        cta: "send",
+        loadSpins: 2,
+        response: { type: "text", value: "No connection" },
+        nextMessage: { text: "I'm begging you …" }
+      },
+      { cta: "Try again", loadSpins: 4, response: { type: "text", value: "#11780" } }
     ]
   };
 
@@ -891,10 +1018,12 @@
   ];
 
   var NAME_THEM_MOMENT_DATA = {
-    intro: { text: "What is #11780?", cta: "search" },
-    image: { src: "assets/images/s3_leak_08_img.png", caption: "Body #11780: Unidentified" },
+    intro: { text: "#11780?????", cta: "search" },
+    image: { src: "assets/images/s3_leak_08_img.png" },
+    captionBelow: "Body #11780: Unidentified",
     reactions: [
-      "Had any number ever made them sad? Yes, 11780.",
+      "Had any number ever made them sad?",
+      "Yes, 11780.",
       "They wrote 'anonymous, 11780', but …",
       "all of us read it as: my heart, my dear brother, my child, my hero …",
       "Surely everyone had a name…",
@@ -912,6 +1041,203 @@
   }
 
   registerStageEnter(3, initStage3);
+
+  /* ------------------------------------------------------------------
+     Stage 4 — name moments: button-driven, one per victim. Types the
+     name (title-style) then a subtext line, plays that moment's audio
+     fire-and-forget (advancement here is button-driven, not tied to the
+     audio ending), then shows the cta. Ends with one auto-advancing
+     moment (no button, no audio) after all named moments are done.
+     ------------------------------------------------------------------ */
+  var NAME_MOMENTS_DATA = [
+    { name: "Reza Moradi", subtext: "Perhaps he had braided a lover's hair.", audio: "assets/audio/s4_name_01_snd.mp3" },
+    { name: "Sogand Mansoori, 14 years old", subtext: "Perhaps she had once danced at a friend's party.", audio: "assets/audio/s4_name_02_snd.mp3" },
+    { name: "Sajad Vala Manesh", subtext: "Perhaps they were waiting for a pair of shoes, a gift their emigrated sister would bring.", audio: "assets/audio/s4_name_03_snd.mp3" },
+    { name: "Ayda Heidari", subtext: "Perhaps she had said it's not tolerable any more, and something must be done.", audio: "assets/audio/s4_name_04_snd.mp3" },
+    { name: "Frahad Farsi", subtext: "But perhaps, struggling with their fears, he left a note: \"if I do not come back, do not weep at my grave — dance.\"", audio: "assets/audio/s4_name_05_snd.mp3" },
+    { name: "Latif Karimi", subtext: "Perhaps he wanted to call his emigrated sister", audio: "assets/audio/s4_name_06_snd.mp3" },
+    { name: "Fereshte Mehri", subtext: "Perhaps she wanted to say: \"We are many, and this time we will make a change\".", audio: "assets/audio/s4_name_07_snd.mp3" },
+    { name: "Mahmoud Rastegar", subtext: "Perhaps he wanted to say: \"I have missed you so much.\" But many tries, and no connection.", audio: "assets/audio/s4_name_08_snd.mp3" },
+    { name: "Raha Azadi", subtext: "Perhaps, running away, he thought that if he had better shoes, he could have made it out alive.", audio: "assets/audio/s4_name_09_snd.mp3" }
+  ];
+
+  function runNameMoment(containerEl, data, onComplete) {
+    containerEl.innerHTML = "";
+
+    // Fire-and-forget: this moment advances on button click, not on the
+    // audio ending, so it's just started and never awaited or gated on.
+    var audioEl = new Audio(data.audio);
+    var playPromise = audioEl.play();
+    if (playPromise && playPromise.catch) {
+      playPromise.catch(function () {});
+    }
+
+    var nameEl = document.createElement("p");
+    nameEl.className = "frame__title";
+    containerEl.appendChild(nameEl);
+
+    var subtextEl = document.createElement("p");
+    subtextEl.className = "frame__body";
+    containerEl.appendChild(subtextEl);
+
+    var actionEl = document.createElement("div");
+    actionEl.className = "message-moment__action";
+    containerEl.appendChild(actionEl);
+
+    function showButton() {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "button message-moment__button";
+      button.textContent = "Call them by their name";
+      bindTapAndClick(button, function () {
+        containerEl.innerHTML = ""; // instant, no fade
+        onComplete();
+      });
+      actionEl.appendChild(button);
+      presentCtaButton(button);
+    }
+
+    typeText(nameEl, data.name, 14, function () {
+      typeText(subtextEl, data.subtext, 14, showButton);
+    });
+  }
+
+  function runNameMomentQueue(containerEl, queue, onQueueComplete) {
+    var index = 0;
+
+    function playNext() {
+      if (index >= queue.length) {
+        onQueueComplete();
+        return;
+      }
+      var data = queue[index];
+      index += 1;
+      runNameMoment(containerEl, data, playNext);
+    }
+
+    playNext();
+  }
+
+  // Closing moment after all 9 names: no cta, no audio — types "11780"
+  // and its subtext, waits ~5000ms, then clears and advances.
+  function runFinalNameMoment(containerEl, onComplete) {
+    containerEl.innerHTML = "";
+
+    var titleEl = document.createElement("p");
+    titleEl.className = "frame__title";
+    containerEl.appendChild(titleEl);
+
+    var subtextEl = document.createElement("p");
+    subtextEl.className = "frame__body";
+    containerEl.appendChild(subtextEl);
+
+    typeText(titleEl, "11780", 14, function () {
+      typeText(
+        subtextEl,
+        "Their body, perhaps, was never identified by their family. But there might still be a human to call them by a name, to recall them by a memory…",
+        14,
+        function () {
+          setTimeout(function () {
+            containerEl.innerHTML = ""; // instant, no fade
+            onComplete();
+          }, 5000);
+        }
+      );
+    });
+  }
+
+  function initStage4() {
+    var momentMountEl = document.getElementById("stage-4-moment-mount");
+    runNameMomentQueue(momentMountEl, NAME_MOMENTS_DATA, function () {
+      runFinalNameMoment(momentMountEl, goToNextStage);
+    });
+  }
+
+  registerStageEnter(4, initStage4);
+
+  /* ------------------------------------------------------------------
+     Stage 5 — closing form moment. Two fields (name + recollection),
+     both optional, then a submit button. For now stage 5 stops after
+     this one moment: no auto-advance, no loop — more moments (and the
+     field/dots visual layer the participated/did-not-participate
+     branch below will eventually drive) come later.
+     ------------------------------------------------------------------ */
+
+  // Placeholder — swap in the real closing statement here when ready.
+  var CLOSING_STATEMENT_TEXT = "Thank you for calling them out of silence.";
+
+  function runClosingFormMoment(containerEl) {
+    containerEl.innerHTML = "";
+
+    var nameFieldWrap = document.createElement("div");
+    nameFieldWrap.className = "stage-5__field";
+    var nameLabel = document.createElement("label");
+    nameLabel.className = "stage-5__field-label";
+    nameLabel.textContent = "How do you call them?";
+    nameLabel.setAttribute("for", "stage-5-name-input");
+    var nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.id = "stage-5-name-input";
+    nameInput.className = "stage-5__field-input";
+    nameInput.placeholder = "11780";
+    nameFieldWrap.appendChild(nameLabel);
+    nameFieldWrap.appendChild(nameInput);
+    containerEl.appendChild(nameFieldWrap);
+
+    var recallFieldWrap = document.createElement("div");
+    recallFieldWrap.className = "stage-5__field";
+    var recallLabel = document.createElement("label");
+    recallLabel.className = "stage-5__field-label";
+    recallLabel.textContent = "How do you recall them?";
+    recallLabel.setAttribute("for", "stage-5-recall-input");
+    var recallInput = document.createElement("input");
+    recallInput.type = "text";
+    recallInput.id = "stage-5-recall-input";
+    recallInput.className = "stage-5__field-input";
+    recallInput.placeholder = "Perhaps they …";
+    recallInput.maxLength = 80;
+    recallFieldWrap.appendChild(recallLabel);
+    recallFieldWrap.appendChild(recallInput);
+    containerEl.appendChild(recallFieldWrap);
+
+    var actionEl = document.createElement("div");
+    actionEl.className = "message-moment__action";
+    containerEl.appendChild(actionEl);
+
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "button message-moment__button";
+    button.textContent = "Call them out of silence";
+    bindTapAndClick(button, function () {
+      var participated = nameInput.value.trim() !== "" || recallInput.value.trim() !== "";
+
+      if (participated) {
+        // TODO: drive the field/dots "participated" visual once that
+        // layer exists.
+      } else {
+        // TODO: drive the field/dots "did not participate" visual once
+        // that layer exists.
+      }
+
+      containerEl.innerHTML = ""; // instant, no fade
+
+      var closingTextEl = document.createElement("p");
+      closingTextEl.className = "frame__body";
+      containerEl.appendChild(closingTextEl);
+      typeText(closingTextEl, CLOSING_STATEMENT_TEXT, 14);
+      // No onComplete: the app stops here for now — no button, no
+      // auto-advance, no loop.
+    });
+    actionEl.appendChild(button);
+    presentCtaButton(button);
+  }
+
+  function initStage5() {
+    var momentMountEl = document.getElementById("stage-5-moment-mount");
+    runClosingFormMoment(momentMountEl);
+  }
+
+  registerStageEnter(5, initStage5);
 
   function init() {
     var continueBtn = document.getElementById("stage-1-continue-btn");

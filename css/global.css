@@ -339,11 +339,46 @@ body {
   border-radius: 0;
 }
 
+/* Stacks a video above its caption (used by s3_mom_10) instead of the
+   default row layout .message-moment__action would otherwise give
+   them as plain siblings. */
+.message-moment__video-response {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
 .message-moment__response-video {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
   border-radius: 0;
+  transition: transform 500ms ease, opacity 500ms ease;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.message-moment__response-video-caption {
+  margin: 0;
+  transition: transform 500ms ease, opacity 500ms ease;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* One-off exit/enter transitions for s3_mom_10 ("Papa?"): the typed text
+   slides up and fades out, then the video (and its caption) slide/fade
+   into place. Everywhere else in the app swaps content instantly. */
+.message-moment__response-text--exit {
+  transition: transform 500ms ease, opacity 500ms ease;
+  transform: translateY(-16px);
+  opacity: 0;
+}
+
+.message-moment__response-video--enter,
+.message-moment__response-video-caption--enter {
+  transform: translateY(16px);
+  opacity: 0;
 }
 
 /* Rotates for a caller-supplied animation-iteration-count (set inline per
@@ -364,14 +399,25 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* Groups the "name them" moment's caption + image as a single persistent
-   block within .message-moment's flex column — it stays put while only
-   the reaction text/button beneath it change. */
+/* Wraps the "name them" moment's image. Persists for the rest of the
+   moment once shown; only its transform changes (shrink on the first
+   "more" click) while the text/button below it keep swapping. */
 .name-them-moment__image-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  transition: transform 500ms ease;
+  transform: translateY(0) scale(1);
+}
+
+.name-them-moment__image-wrap--shrunk {
+  transform: translateY(-16px) scale(0.9);
+}
+
+/* Pulls the caption/reaction zone closer to the image — .message-moment's
+   28px gap otherwise reads as too much space here specifically. */
+.name-them-moment__zone-text {
+  margin-top: -14px;
 }
 
 /* Full-viewport blackout overlay, created/removed on demand by the
@@ -384,4 +430,59 @@ body {
   height: 100dvh;
   background-color: #000000;
   z-index: 999;
+}
+
+/* ==========================================================================
+   Stage 4 — Name moments (button-driven, ending in one auto-advancing moment)
+   ========================================================================== */
+
+.stage-4__background {
+  background-color: #000000;
+}
+
+/* ==========================================================================
+   Stage 5 — Closing form moment (more moments to follow)
+   ========================================================================== */
+
+.stage-5__background {
+  background-color: #000000;
+}
+
+.stage-5__field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.stage-5__field-label {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-fg);
+  opacity: 0.85;
+  margin: 0;
+}
+
+.stage-5__field-input {
+  width: 100%;
+  max-width: 28ch;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: 0;
+  padding: 8px 4px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  color: var(--color-fg);
+  text-align: center;
+}
+
+.stage-5__field-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.stage-5__field-input:focus {
+  outline: none;
+  border-bottom-color: var(--color-fg);
 }
