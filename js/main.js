@@ -1051,7 +1051,7 @@
      ------------------------------------------------------------------ */
   var NAME_MOMENTS_DATA = [
     { name: "Reza Moradi", subtext: "Perhaps he had braided a lover's hair.", audio: "assets/audio/s4_name_01_snd.mp3" },
-    { name: "Sogand Mansoori, 14 years old", subtext: "Perhaps she had once danced at a friend's party.", audio: "assets/audio/s4_name_02_snd.mp3" },
+    { name: "Sogand Mansoori", age: "14 years old", subtext: "Perhaps she had once danced at a friend's party.", audio: "assets/audio/s4_name_02_snd.mp3" },
     { name: "Sajad Vala Manesh", subtext: "Perhaps they were waiting for a pair of shoes, a gift their emigrated sister would bring.", audio: "assets/audio/s4_name_03_snd.mp3" },
     { name: "Ayda Heidari", subtext: "Perhaps she had said it's not tolerable any more, and something must be done.", audio: "assets/audio/s4_name_04_snd.mp3" },
     { name: "Frahad Farsi", subtext: "But perhaps, struggling with their fears, he left a note: \"if I do not come back, do not weep at my grave — dance.\"", audio: "assets/audio/s4_name_05_snd.mp3" },
@@ -1076,6 +1076,13 @@
     nameEl.className = "frame__title";
     containerEl.appendChild(nameEl);
 
+    var ageEl = null;
+    if (data.age) {
+      ageEl = document.createElement("p");
+      ageEl.className = "name-moment__age";
+      containerEl.appendChild(ageEl);
+    }
+
     var subtextEl = document.createElement("p");
     subtextEl.className = "frame__body";
     containerEl.appendChild(subtextEl);
@@ -1098,7 +1105,13 @@
     }
 
     typeText(nameEl, data.name, 14, function () {
-      typeText(subtextEl, data.subtext, 14, showButton);
+      if (ageEl) {
+        typeText(ageEl, data.age, 14, function () {
+          typeText(subtextEl, data.subtext, 14, showButton);
+        });
+      } else {
+        typeText(subtextEl, data.subtext, 14, showButton);
+      }
     });
   }
 

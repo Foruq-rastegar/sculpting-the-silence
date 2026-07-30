@@ -440,6 +440,16 @@ body {
   background-color: #000000;
 }
 
+/* Optional age line beneath a name-moment's name (e.g. s4_mom_14, "14
+   years old") — distinct from both the title-style name above it and
+   the body-style subtext below it. */
+.name-moment__age {
+  font-size: 10px;
+  font-weight: 400;
+  color: #9a9a9a;
+  margin: 0;
+}
+
 /* ==========================================================================
    Stage 5 — Closing form moment (more moments to follow)
    ========================================================================== */
