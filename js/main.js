@@ -1132,7 +1132,8 @@
   }
 
   // Closing moment after all 9 names: no cta, no audio — types "11780"
-  // and its subtext, waits ~5000ms, then clears and advances.
+  // and its subtext, waits a short beat after typing finishes, then
+  // clears and advances.
   function runFinalNameMoment(containerEl, onComplete) {
     containerEl.innerHTML = "";
 
@@ -1153,7 +1154,7 @@
           setTimeout(function () {
             containerEl.innerHTML = ""; // instant, no fade
             onComplete();
-          }, 5000);
+          }, 400);
         }
       );
     });
