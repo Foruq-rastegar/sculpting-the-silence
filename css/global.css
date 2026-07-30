@@ -1,0 +1,387 @@
+/* ==========================================================================
+   Sculpting the Silence — Global base styles
+   These rules apply to every stage. Stage-specific styles should live in
+   their own scoped classes/files and build on top of this foundation.
+   ========================================================================== */
+
+:root {
+  --color-fg: #ffffff;
+  --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --font-size-title: 16px;
+  --font-weight-title: 700;
+
+  --font-size-body: 12px;
+  --font-weight-body: 400;
+  --line-height-body: 1.5;
+
+  --font-size-button: 12px;
+  --font-weight-button: 600;
+
+  --button-padding-block: 8px;
+  --button-padding-inline: 10px;
+  --button-radius: 0;
+  --button-border: 1.5px solid var(--color-fg);
+
+  --frame-max-width: 402px;
+  --frame-radius: 0;
+  --frame-padding: 32px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-family);
+  color: var(--color-fg);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Full-bleed background layer. Stages set their own background-image
+   inline or via a stage-specific modifier class. */
+.background-layer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+
+/* Centered content frame, fixed design width that shrinks on narrow
+   viewports. Sits above the background layer. Plain by default — the
+   frosted-card look (blur/tint/grain) is opt-in via .frame--intro. */
+.frame {
+  position: relative;
+  z-index: 1;
+  width: min(92vw, 402px, calc(92dvh * 402 / 874));
+  aspect-ratio: 402 / 874;
+  min-width: 320px;
+  margin: 0 auto;
+  padding: var(--frame-padding);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--color-fg);
+  overflow: visible;
+  border-radius: var(--frame-radius);
+}
+
+/* Frosted-card treatment: dark tint + blur + grain. Stage 1 ("Content
+   Warning") only — floats the card over its sharp background image.
+   Stages 2+ render .frame plain against their own stage background. */
+.frame--intro {
+  background: rgba(18, 18, 18, 0.45);
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+}
+
+/* Fine grain/noise texture confined to the card, clipped to its
+   corners. Purely decorative — never intercepts pointer events. */
+.frame--intro::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC41NSIgbnVtT2N0YXZlcz0iMiIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjxmZUNvbG9yTWF0cml4IHR5cGU9InNhdHVyYXRlIiB2YWx1ZXM9IjAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbikiLz48L3N2Zz4K");
+  opacity: 0.10;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* Instantly hides the card on stage advance, revealing the sharp
+   background image underneath. No animation — set/removed synchronously
+   in the click handler that calls goToNextStage(). */
+.frame--exiting {
+  display: none;
+}
+
+.frame__title {
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-title);
+  color: var(--color-fg);
+  margin: 0;
+}
+
+.frame__body {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: var(--line-height-body);
+  color: var(--color-fg);
+  opacity: 0.85;
+  margin: 0;
+  max-width: 40ch;
+  margin-inline: auto;
+}
+
+.button {
+  display: inline-block;
+  background: transparent;
+  border: var(--button-border);
+  border-radius: var(--button-radius);
+  padding: var(--button-padding-block) var(--button-padding-inline);
+  font-family: var(--font-family);
+  font-size: var(--font-size-button);
+  font-weight: var(--font-weight-button);
+  color: var(--color-fg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.button:active {
+  opacity: 0.7;
+}
+
+/* Stage container: each stage is a full-viewport wrapper holding its own
+   background layer + frame. Only one is shown at a time. */
+.stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage.is-active {
+  display: flex;
+}
+
+/* ==========================================================================
+   Stage 1 — Content Warning
+   ========================================================================== */
+
+.stage-1__icon {
+  width: 110px;
+  height: auto;
+  margin-bottom: 48px;
+}
+
+.stage-1__title {
+  margin-bottom: 32px;
+}
+
+.stage-1__body {
+  margin-bottom: 56px;
+}
+
+/* ==========================================================================
+   Stage 2 — Automatic sequence (video, blackout graph, gunfire warning)
+   ========================================================================== */
+
+.stage-2__background {
+  background-color: #000000;
+}
+
+/* Fallback for stages with no direct-flow content in .frame: moments are
+   absolutely positioned within it and switched instantly (no fade, per
+   the global no-transition rule on stage/moment changes). */
+.moment {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--frame-padding);
+}
+
+.moment.is-active {
+  display: flex;
+}
+
+/* Video moment fills the card edge-to-edge, ignoring the frame's padding. */
+.stage-2__moment--video {
+  padding: 0;
+}
+
+.stage-2__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--frame-radius);
+}
+
+.stage-2__moment--cutoff .frame__body {
+  margin-bottom: 20px;
+}
+
+/* Full-viewport black beat between moments 2.2 and 2.3. A direct child of
+   #stage-2 (not nested in .frame) so its inset:0 sizes to the whole fixed
+   .stage box, covering the background layer and the frame alike; z-index
+   puts it above both. */
+.stage-2__moment--blackout {
+  z-index: 5;
+  background-color: #000000;
+  padding: 0;
+}
+
+.stage-2__chart-mount {
+  width: 100%;
+}
+
+.stage-2__chart-mount svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+}
+
+/* Audio-waveform indicator: a row of thin bars whose height animates in a
+   loop to read as a live voice/podcast visualizer. Started/stopped by JS
+   toggling the --playing modifier in sync with the gunshot audio element. */
+.waveform-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+  margin-top: 20px;
+}
+
+.waveform-indicator__bar {
+  width: 3px;
+  height: 100%;
+  border-radius: 0;
+  background-color: var(--color-fg);
+  transform: scaleY(0.15);
+  transform-origin: center;
+  animation: waveform-bounce 900ms ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.waveform-indicator--playing .waveform-indicator__bar {
+  animation-play-state: running;
+}
+
+/* Mix of short "dot" bars and taller bars, each offset so the bars move
+   asynchronously instead of pulsing in unison. */
+.waveform-indicator__bar:nth-child(1) { height: 30%; animation-delay: 0ms; }
+.waveform-indicator__bar:nth-child(2) { height: 70%; animation-delay: 90ms; }
+.waveform-indicator__bar:nth-child(3) { height: 100%; animation-delay: 180ms; }
+.waveform-indicator__bar:nth-child(4) { height: 45%; animation-delay: 270ms; }
+.waveform-indicator__bar:nth-child(5) { height: 85%; animation-delay: 360ms; }
+.waveform-indicator__bar:nth-child(6) { height: 25%; animation-delay: 450ms; }
+.waveform-indicator__bar:nth-child(7) { height: 100%; animation-delay: 540ms; }
+.waveform-indicator__bar:nth-child(8) { height: 55%; animation-delay: 630ms; }
+.waveform-indicator__bar:nth-child(9) { height: 30%; animation-delay: 720ms; }
+.waveform-indicator__bar:nth-child(10) { height: 90%; animation-delay: 810ms; }
+.waveform-indicator__bar:nth-child(11) { height: 40%; animation-delay: 900ms; }
+.waveform-indicator__bar:nth-child(12) { height: 75%; animation-delay: 990ms; }
+.waveform-indicator__bar:nth-child(13) { height: 25%; animation-delay: 1080ms; }
+.waveform-indicator__bar:nth-child(14) { height: 60%; animation-delay: 1170ms; }
+
+@keyframes waveform-bounce {
+  0%, 100% { transform: scaleY(0.15); }
+  50% { transform: scaleY(1); }
+}
+
+/* ==========================================================================
+   Stage 3 — Message moments (button-driven attempt ladders)
+   ========================================================================== */
+
+.stage-3__background {
+  background-color: #000000;
+}
+
+/* Fills the .frame (same card as stages 1-2) and centers whichever piece
+   of the current message moment is showing (message, button, spinner, or
+   response). Content is swapped instantly by JS — no fade. */
+.message-moment {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+}
+
+.message-moment__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.message-moment__response-text {
+  margin: 0;
+}
+
+.message-moment__audio-response {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.message-moment__response-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+}
+
+.message-moment__response-video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+}
+
+/* Rotates for a caller-supplied animation-iteration-count (set inline per
+   attempt) then stops via 'animationend' — never set to infinite here. */
+.message-moment__spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--color-fg);
+  animation-name: message-moment-spin;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes message-moment-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Groups the "name them" moment's caption + image as a single persistent
+   block within .message-moment's flex column — it stays put while only
+   the reaction text/button beneath it change. */
+.name-them-moment__image-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Full-viewport blackout overlay, created/removed on demand by the
+   coverViewportInBlack() helper. Sits above everything (background
+   layer + frame), regardless of which stage is active. */
+.viewport-blackout {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  background-color: #000000;
+  z-index: 999;
+}

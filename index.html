@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Sculpting the Silence</title>
+<link rel="stylesheet" href="css/global.css">
+</head>
+<body>
+
+  <!-- Stage 1: Content Warning -->
+  <section id="stage-1" class="stage stage-1 is-active" data-stage="1">
+    <div class="background-layer" style="background-image: url('assets/images/s1_banner_sensitive_content_img.png');"></div>
+    <div class="frame frame--intro">
+      <img class="stage-1__icon" src="assets/icons/s1_sensetive_content_icon.svg" alt="" width="110" height="91">
+      <h1 class="frame__title stage-1__title">Content Warning</h1>
+      <p class="frame__body stage-1__body">This experience contains emotionally intense content that some people may find overwhelming.</p>
+      <button type="button" class="button" id="stage-1-continue-btn">Run the Experience</button>
+    </div>
+  </section>
+
+  <!-- Stage 2: automatic sequence — social feeds video, blackout graph, gunfire warning -->
+  <section id="stage-2" class="stage stage-2" data-stage="2">
+    <div class="background-layer stage-2__background"></div>
+    <div class="frame stage-2__frame">
+
+      <div class="moment stage-2__moment stage-2__moment--video is-active" id="stage-2-moment-video" data-moment="1">
+        <video id="stage-2-video" class="stage-2__video" src="assets/video/s2_protest_socialmedia_feeds_vid.mp4" autoplay playsinline preload="none"></video>
+      </div>
+
+      <div class="moment stage-2__moment stage-2__moment--cutoff" id="stage-2-moment-cutoff" data-moment="2">
+        <p class="frame__body" id="stage-2-cutoff-text"></p>
+        <div class="stage-2__chart-mount" id="stage-2-chart-mount"></div>
+      </div>
+
+      <div class="moment stage-2__moment stage-2__moment--gunfire" id="stage-2-moment-gunfire" data-moment="3">
+        <p class="frame__body" id="stage-2-gunfire-text"></p>
+        <div class="waveform-indicator" id="stage-2-waveform">
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+          <span class="waveform-indicator__bar"></span>
+        </div>
+        <audio id="stage-2-gunshot-audio" src="assets/audio/s2_gunshot_warning_snd.mp3" preload="none"></audio>
+      </div>
+
+    </div>
+
+    <div class="moment stage-2__moment--blackout" id="stage-2-moment-blackout"></div>
+  </section>
+
+  <!-- Stage 3: message moments — button-driven attempt ladders -->
+  <section id="stage-3" class="stage stage-3" data-stage="3">
+    <div class="background-layer stage-3__background"></div>
+    <div class="frame stage-3__frame">
+      <div class="message-moment" id="stage-3-moment-mount"></div>
+    </div>
+  </section>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
