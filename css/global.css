@@ -325,6 +325,13 @@ body {
   margin: 0;
 }
 
+/* EXPERIMENT (s3_mom_05 only): muted color for a response shown at the
+   same time as the next cta, instead of its own dwell-then-clear step. */
+.message-moment__response-text--muted {
+  color: #9a9a9a;
+  opacity: 1;
+}
+
 .message-moment__audio-response {
   display: flex;
   flex-direction: column;

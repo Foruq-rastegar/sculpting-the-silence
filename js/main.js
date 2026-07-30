@@ -481,8 +481,11 @@
     actionEl.className = "message-moment__action";
     containerEl.appendChild(actionEl);
 
-    function showAttemptButton(index) {
-      actionEl.innerHTML = ""; // instant, no fade
+    // Appends attempt[index]'s cta button to actionEl without clearing
+    // it first — shared by showAttemptButton's normal clear-then-show
+    // flow and the s3_mom_05 experiment, which appends it alongside a
+    // response that's already there.
+    function createAttemptButton(index) {
       var attempt = data.attempts[index];
 
       var button = document.createElement("button");
@@ -494,6 +497,11 @@
       });
       actionEl.appendChild(button);
       presentCtaButton(button);
+    }
+
+    function showAttemptButton(index) {
+      actionEl.innerHTML = ""; // instant, no fade
+      createAttemptButton(index);
     }
 
     function runAttempt(index) {
@@ -764,6 +772,16 @@
         // ends, per attempt.skipResponseText.
         advanceToNextAttempt(index, attempt);
         return;
+      } else if (attempt.showResponseWithNextCta) {
+        // EXPERIMENT (s3_mom_05 only): the response text and the next
+        // attempt's cta appear at the same time — text above the
+        // button, muted color, instead of its own dwell-then-clear step.
+        var simultaneousResponseText = document.createElement("p");
+        simultaneousResponseText.className = "frame__body message-moment__response-text message-moment__response-text--muted";
+        simultaneousResponseText.textContent = response.value;
+        actionEl.appendChild(simultaneousResponseText);
+        createAttemptButton(index + 1);
+        return;
       }
 
       var responseText = document.createElement("p");
@@ -918,9 +936,11 @@
   var MOM_MESSAGE_DATA = {
     message: "Mom???",
     attempts: [
-      { cta: "Connect", loadSpins: 4, response: { type: "text", value: "No response" } },
-      { cta: "Try again", loadSpins: 3, response: { type: "text", value: "No response" } },
-      { cta: "Try again", loadSpins: 2, response: { type: "text", value: "No response" } },
+      // EXPERIMENT (this moment only): showResponseWithNextCta shows
+      // "No response" at the same time as the next cta — see showResponse.
+      { cta: "Connect", loadSpins: 4, response: { type: "text", value: "No response" }, showResponseWithNextCta: true },
+      { cta: "Try again", loadSpins: 3, response: { type: "text", value: "No response" }, showResponseWithNextCta: true },
+      { cta: "Try again", loadSpins: 2, response: { type: "text", value: "No response" }, showResponseWithNextCta: true },
       { cta: "Please try again", loadSpins: 1, response: { type: "image", value: "assets/images/s3_leak_01_img.png" } }
     ]
   };
