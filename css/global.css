@@ -466,6 +466,13 @@ body {
   width: 100%;
 }
 
+/* Pulls the second field up into .message-moment's 28px gap so the two
+   fields sit closer together; spacing before the submit button below
+   them is untouched. */
+.stage-5__field + .stage-5__field {
+  margin-top: -20px;
+}
+
 .stage-5__field-label {
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-body);
