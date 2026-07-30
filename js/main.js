@@ -1055,7 +1055,7 @@
     { name: "Sajad Vala Manesh", subtext: "Perhaps they were waiting for a pair of shoes, a gift their emigrated sister would bring.", audio: "assets/audio/s4_name_03_snd.mp3" },
     { name: "Ayda Heidari", subtext: "Perhaps she had said it's not tolerable any more, and something must be done.", audio: "assets/audio/s4_name_04_snd.mp3" },
     { name: "Frahad Farsi", subtext: "But perhaps, struggling with their fears, he left a note: \"if I do not come back, do not weep at my grave — dance.\"", audio: "assets/audio/s4_name_05_snd.mp3" },
-    { name: "Latif Karimi", subtext: "Perhaps he wanted to call his emigrated sister", audio: "assets/audio/s4_name_06_snd.mp3" },
+    { name: "Latif Karimi", subtext: "Perhaps he wanted to call his emigrated sister.", audio: "assets/audio/s4_name_06_snd.mp3" },
     { name: "Sepehr Shokri", subtext: "Perhaps she wanted to say: \"We are many, and this time we will make a change\".", audio: "assets/audio/s4_name_07_snd.mp3" },
     { name: "Mahmoud Rastegar", subtext: "Perhaps he wanted to say: \"I have missed you so much.\" But many tries, and no connection.", audio: "assets/audio/s4_name_08_snd.mp3" },
     { name: "Raha Azadi", subtext: "Perhaps, running away, he thought that if he had better shoes, he could have made it out alive.", audio: "assets/audio/s4_name_09_snd.mp3" }
