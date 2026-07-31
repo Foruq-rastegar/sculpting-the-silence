@@ -36,7 +36,7 @@
     { name: "Latif Karimi", subtext: "Perhaps he wanted to call his emigrated sister.", audio: "assets/audio/s4_name_06_snd.mp3" },
     { name: "Sepehr Shokri", subtext: "Perhaps he wanted to say: \"We are many, and this time we will make a change\".", audio: "assets/audio/s4_name_07_snd.mp3" },
     { name: "Mahmoud Rastegar", subtext: "Perhaps he wanted to say: \"I have missed you so much.\" But many tries, and no connection.", audio: "assets/audio/s4_name_08_snd.mp3" },
-    { name: "Raha Azadi", subtext: "Perhaps, running away, she thought that if he had better shoes, she could have made it out alive.", audio: "assets/audio/s4_name_09_snd.mp3" }
+    { name: "Raha Azadi", subtext: "Perhaps, running away, she thought that if she had better shoes, she could have made it out alive.", audio: "assets/audio/s4_name_09_snd.mp3" }
   ];
 
   function runNameMoment(containerEl, data, onComplete) {
