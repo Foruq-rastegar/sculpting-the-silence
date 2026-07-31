@@ -141,11 +141,7 @@
       {
         cta: "Try again",
         loadSpins: 1,
-        response: {
-          type: "image",
-          value: "assets/images/s3_leak_08_img.png",
-          caption: "Body #11780: Unidentified"
-        }
+        response: { type: "text", value: "#11780" }
       }
     ]
   };

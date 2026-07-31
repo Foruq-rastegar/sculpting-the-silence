@@ -285,8 +285,8 @@
     // Every stage-3 leak image (standalone or within a chain): a slow,
     // gentle zoom-in over the image's full display duration, so it's
     // subtly still growing right up until it's cleared from the screen.
-    // An optional caption types in word-by-word below it, fire-and-forget
-    // (doesn't gate onDone/durationMs).
+    // An optional caption types in below it, fire-and-forget (doesn't
+    // gate onDone/durationMs).
     function renderZoomingLeakImage(mountEl, src, durationMs, onDone, caption) {
       var img = document.createElement("img");
       img.className = "message-moment__response-image";
