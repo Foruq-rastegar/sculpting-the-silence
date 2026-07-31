@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Netblocks counter prototype — hours-to-days escalation</title>
+<style>
+  /* Same design tokens as css/global.css (:root), copied in since this
+     prototype is standalone and doesn't load the site's stylesheet. */
+  :root {
+    color-scheme: dark;
+    --color-fg: #ffffff;
+    --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    --font-size-title: 16px;
+    --font-weight-title: 700;
+
+    --font-size-body: 12px;
+    --font-weight-body: 400;
+    --line-height-body: 1.5;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    font-family: var(--font-family);
+    color: var(--color-fg);
+  }
+
+  .proto-frame {
+    width: 402px;
+    max-width: 92vw;
+    box-sizing: border-box;
+    padding: 24px;
+    text-align: center; /* matches .frame — .frame__body/.frame__title rely on this for centering */
+  }
+
+  /* Same tokens/rules as .frame__body in css/global.css. The main typed
+     sentence — unchanged, except for the reserved min-height below: sized
+     for the tallest expected wrap (~4 lines at max-width: 40ch) so the
+     counter widget beneath it never shifts, whether mid-type or between
+     texts of different lengths. */
+  .proto-text {
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-body);
+    line-height: var(--line-height-body);
+    color: var(--color-fg);
+    opacity: 0.85;
+    margin: 0;
+    max-width: 40ch;
+    margin-inline: auto;
+    min-height: calc(var(--font-size-body) * var(--line-height-body) * 4);
+  }
+
+  .counter-widget {
+    margin-top: 20px;
+  }
+
+  /* Line 1 — just the number. Same size/weight token as .frame__title,
+     per the earlier pass — just recolored red for emphasis. */
+  .counter-number {
+    font-size: calc(var(--font-size-title) + 4px);
+    font-weight: var(--font-weight-title);
+    line-height: 1;
+    color: #e53935;
+    margin: 0;
+  }
+
+  /* Line 2 — unit word + description merged into one phrase (e.g. "day
+     of digital blackout in Iran"), replacing the old separate unit label
+     and static caption. Styled as a smaller descriptive label. */
+  .counter-caption {
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-body);
+    color: var(--color-fg);
+    opacity: 0.6;
+    margin: 6px 0 0;
+  }
+
+  .proto-replay {
+    margin-top: 24px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.6);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+
+  .proto-replay:hover { color: #fff; border-color: rgba(255, 255, 255, 0.5); }
+</style>
+</head>
+<body>
+
+  <div class="proto-frame">
+    <p class="proto-text" id="proto-text"></p>
+
+    <div class="counter-widget">
+      <p class="counter-number" id="counter-number"></p>
+      <p class="counter-caption" id="counter-caption"></p>
+    </div>
+
+    <button type="button" class="proto-replay" id="proto-replay">↻ Replay</button>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     Standalone prototype — not wired into the main site yet. Text types
+     out at the top; at the same instant, a red counter below it sprints
+     0-23 (caption: "hour of digital blackout in Iran") then switches to
+     counting 1-18 (caption: "day of digital blackout in Iran"), holding
+     on "18+". The counter's total duration is derived from the typing
+     duration (text.length / charsPerSecond) so both animations start
+     together and land at roughly the same moment, regardless of future
+     edits to the text or typing speed.
+     ------------------------------------------------------------------ */
+
+  function typeText(element, text, charsPerSecond, onComplete) {
+    if (!element) return function () {};
+
+    var intervalMs = 1000 / (charsPerSecond || 30);
+    var i = 0;
+    element.textContent = "";
+
+    var timer = setInterval(function () {
+      i += 1;
+      element.textContent = text.slice(0, i);
+      if (i >= text.length) {
+        clearInterval(timer);
+        if (onComplete) onComplete();
+      }
+    }, intervalMs);
+
+    return function stopTyping() {
+      clearInterval(timer);
+    };
+  }
+
+  var INTRO_TEXT = "As the protests peaked, the government completely blacked out all communication channels in Iran.";
+  var TYPE_CHARS_PER_SECOND = 14;
+
+  var HOURS_MAX = 23;
+  var HOUR_TICKS = HOURS_MAX + 1; // firings to display 1..23, then one more to detect >23 and switch
+
+  var DAYS_MAX = 18;
+  var DAY_TICKS = DAYS_MAX - 1; // firings to walk from the immediate "1" up to the final "18"
+
+  // Share of the total duration spent in the (faster) hour sprint before
+  // handing off to the (slower) day count — tune to taste.
+  var HOUR_PHASE_DURATION_SHARE = 0.45;
+
+  var counterNumberEl = document.getElementById("counter-number");
+  var counterCaptionEl = document.getElementById("counter-caption");
+
+  function setCounter(numberText, unit) {
+    counterNumberEl.textContent = numberText;
+    counterCaptionEl.textContent = unit ? unit + " of digital blackout in Iran" : "";
+  }
+
+  // Counts 0 -> HOURS_MAX (caption unit "hour") then 1 -> DAYS_MAX
+  // (caption unit "day"), timed to finish at totalDurationMs from now
+  // (hour phase gets HOUR_PHASE_DURATION_SHARE of it, day phase gets the
+  // rest). The final value is shown as "18+" (trailing plus), not plain
+  // "18". Returns a stop function so a replay can cancel an in-flight run.
+  function playEscalatingCounter(totalDurationMs) {
+    var hourStepMs = (totalDurationMs * HOUR_PHASE_DURATION_SHARE) / HOUR_TICKS;
+    var dayStepMs = (totalDurationMs * (1 - HOUR_PHASE_DURATION_SHARE)) / DAY_TICKS;
+
+    var hourTimer = null;
+    var dayTimer = null;
+
+    function stop() {
+      if (hourTimer) clearInterval(hourTimer);
+      if (dayTimer) clearInterval(dayTimer);
+    }
+
+    function startDaysPhase() {
+      var day = 1;
+      setCounter(String(day), "day");
+      dayTimer = setInterval(function () {
+        day += 1;
+        if (day >= DAYS_MAX) {
+          clearInterval(dayTimer);
+          setCounter(DAYS_MAX + "+", "day");
+          return;
+        }
+        setCounter(String(day), "day");
+      }, dayStepMs);
+    }
+
+    var hour = 0;
+    setCounter(String(hour), "hour");
+    hourTimer = setInterval(function () {
+      hour += 1;
+      if (hour > HOURS_MAX) {
+        clearInterval(hourTimer);
+        startDaysPhase();
+        return;
+      }
+      setCounter(String(hour), "hour");
+    }, hourStepMs);
+
+    return stop;
+  }
+
+  var textEl = document.getElementById("proto-text");
+  var replayBtn = document.getElementById("proto-replay");
+  var stopTyping = null;
+  var stopCounter = null;
+
+  function playSequence() {
+    if (stopTyping) stopTyping();
+    if (stopCounter) stopCounter();
+    textEl.textContent = "";
+    setCounter("", "");
+
+    // Both start in this same call, at the same instant. The counter's
+    // total duration is derived from how long the typing will take, so
+    // the two land together without either waiting on the other.
+    var typingDurationMs = (INTRO_TEXT.length / TYPE_CHARS_PER_SECOND) * 1000;
+
+    stopTyping = typeText(textEl, INTRO_TEXT, TYPE_CHARS_PER_SECOND);
+    stopCounter = playEscalatingCounter(typingDurationMs);
+  }
+
+  replayBtn.addEventListener("click", playSequence);
+
+  playSequence();
+})();
+</script>
+</body>
+</html>
