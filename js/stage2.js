@@ -9,6 +9,13 @@
 
   var STS = window.STS;
 
+  // Feature flag for s2_mom_04 (the gunfire warning moment, moment 2.4 in
+  // this file's numbering — the blackout beat at 2.3 only exists as its
+  // lead-in). Set to false to skip both entirely, going straight from
+  // moment 2.2 to whatever follows 2.4 (stage 3), without deleting either
+  // moment's code.
+  var ENABLE_S2_MOM_04 = true;
+
   /* ------------------------------------------------------------------
      Moment runner — plays an ordered list of moments one at a time.
      Each moment is { el, run(advance), startDelayMs }: el is shown
@@ -261,18 +268,26 @@
           renderNetblocksChart(chartMountEl, NETBLOCKS_DATA);
           setTimeout(advance, NETBLOCKS_DATA.animation.totalDurationMs);
         }
-      },
-      {
-        // Black-screen beat between 2.2 and 2.3: covers the entire
+      }
+    ];
+
+    // 2.3 (blackout lead-in) + 2.4 (gunfire warning, s2_mom_04) — only
+    // included when the flag above is on; skipping both leaves the code
+    // intact but simply never queues it, going straight from 2.2 to
+    // whatever runMoments' onComplete does (stage 3).
+    if (ENABLE_S2_MOM_04) {
+      moments.push({
+        // Black-screen beat between 2.2 and 2.4: covers the entire
         // viewport (background layer + frame, via a sibling element
         // outside .frame) with solid black for exactly 1000ms.
         el: document.getElementById("stage-2-moment-blackout"),
         run: function (advance) {
           setTimeout(advance, 1000);
         }
-      },
-      {
-        // 2.3 — gunfire warning text.
+      });
+
+      moments.push({
+        // 2.4 — gunfire warning text (s2_mom_04).
         el: document.getElementById("stage-2-moment-gunfire"),
         run: function (advance) {
           STS.typeText(gunfireTextEl, "They are shooting by shotguns ...", 14, null, "word");
@@ -294,8 +309,8 @@
             playPromise.catch(function () {});
           }
         }
-      }
-    ];
+      });
+    }
 
     runMoments(momentEls, moments, STS.goToNextStage);
   }
