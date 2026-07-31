@@ -217,15 +217,21 @@
       var zoneTextEl = freshZoneTextEl();
 
       var isLastReaction = reactionIndex === data.reactions.length - 1;
-      STS.typeText(zoneTextEl, data.reactions[reactionIndex], 14, function () {
-        if (isLastReaction) {
-          showButton(data.finalCta, finish);
-        } else {
-          showButton(data.reactionCta, function () {
-            showReaction(reactionIndex + 1);
-          });
-        }
-      });
+      STS.typeText(
+        zoneTextEl,
+        data.reactions[reactionIndex],
+        14,
+        function () {
+          if (isLastReaction) {
+            showButton(data.finalCta, finish);
+          } else {
+            showButton(data.reactionCta, function () {
+              showReaction(reactionIndex + 1);
+            });
+          }
+        },
+        "word"
+      );
     }
 
     // First "more" click only: shrinks the image into its permanent
@@ -262,9 +268,15 @@
       STS.coverViewportInBlack(1000, onComplete);
     }
 
-    STS.typeText(textEl, data.intro.text, 14, function () {
-      showButton(data.intro.cta, showImage);
-    });
+    STS.typeText(
+      textEl,
+      data.intro.text,
+      14,
+      function () {
+        showButton(data.intro.cta, showImage);
+      },
+      "word"
+    );
   }
 
   // Background gunshot loop: starts at s3_mom_05 ("Mom???", the very

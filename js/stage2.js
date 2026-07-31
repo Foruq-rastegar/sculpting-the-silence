@@ -254,7 +254,9 @@
           STS.typeText(
             cutoffTextEl,
             "As the protests peaked, the government completely blacked out all communication channels in Iran.",
-            14
+            14,
+            null,
+            "word"
           );
           renderNetblocksChart(chartMountEl, NETBLOCKS_DATA);
           setTimeout(advance, NETBLOCKS_DATA.animation.totalDurationMs);
@@ -273,7 +275,7 @@
         // 2.3 — gunfire warning text.
         el: document.getElementById("stage-2-moment-gunfire"),
         run: function (advance) {
-          STS.typeText(gunfireTextEl, "They are shooting by shotguns ...", 14);
+          STS.typeText(gunfireTextEl, "They are shooting by shotguns ...", 14, null, "word");
 
           if (!gunshotAudioEl) {
             advance();

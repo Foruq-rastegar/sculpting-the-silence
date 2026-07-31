@@ -20,6 +20,14 @@
 
   function initStage1() {
     var continueBtn = document.getElementById("stage-1-continue-btn");
+    var titleEl = document.querySelector("#stage-1 .stage-1__title");
+    var bodyEl = document.querySelector("#stage-1 .stage-1__body");
+
+    // Word-by-word (not msg content) — fire-and-forget, doesn't gate the
+    // continue button, which is already presented immediately below.
+    if (titleEl) STS.typeText(titleEl, titleEl.textContent, 14, null, "word");
+    if (bodyEl) STS.typeText(bodyEl, bodyEl.textContent, 14, null, "word");
+
     if (continueBtn) {
       STS.bindTapAndClick(continueBtn, exitStage1);
       STS.presentCtaButton(continueBtn);
