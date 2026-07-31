@@ -65,6 +65,8 @@
     <div class="frame stage-3__frame">
       <div class="message-moment" id="stage-3-moment-mount"></div>
     </div>
+    <audio id="stage-3-gunshot-audio" src="assets/audio/s3_gunshot_snd.mp3" preload="none" loop></audio>
+    <audio id="stage-3-underscore-audio" src="assets/audio/s3_underscore_loop.mp3" preload="none" loop></audio>
   </section>
 
   <!-- Stage 4: name moments — button-driven, ending in one auto-advancing moment -->
@@ -75,11 +77,20 @@
     </div>
   </section>
 
-  <!-- Stage 5: closing form moment (first of more moments to come) -->
+  <!-- Stage 5: closing form moment (s5_mom_23), then the collective board (s5_mom_24) -->
   <section id="stage-5" class="stage stage-5" data-stage="5">
     <div class="background-layer stage-5__background"></div>
     <div class="frame stage-5__frame">
       <div class="message-moment" id="stage-5-moment-mount"></div>
+    </div>
+
+    <!-- s5_mom_24 — full-viewport collective board, not a .frame card.
+         Hidden until s5_mom_23's closing statement finishes typing. -->
+    <div class="collective-board" id="stage-5-board" hidden>
+      <p class="collective-board__footer" id="stage-5-board-footer"></p>
+      <button type="button" class="collective-board__export-btn" id="stage-5-board-export-btn">Export</button>
+      <div class="collective-board__names" id="stage-5-board-names"></div>
+      <div class="collective-board__tooltip" id="stage-5-board-tooltip" hidden></div>
     </div>
   </section>
 

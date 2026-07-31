@@ -466,6 +466,32 @@ body {
   align-items: center;
   gap: 8px;
   width: 100%;
+  transition: transform 500ms ease, opacity 500ms ease;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* Pre-transition state for each field/button sliding in below the kept-on-
+   screen s4_mom_22 title+subtext (s4_mom_22 -> s5_mom_23 is one continuous
+   frame now, not a hard cut) — JS adds this then removes it a frame later. */
+.stage-5__field--enter {
+  transform: translateY(16px);
+  opacity: 0;
+}
+
+/* Same slide-in treatment for the submit button's wrapper, reusing
+   .message-moment__action for layout only — the transition/enter state
+   below is scoped to this modifier so other .message-moment__action
+   usages elsewhere stay instant, as before. */
+.stage-5__submit-action {
+  transition: transform 500ms ease, opacity 500ms ease;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.stage-5__submit-action--enter {
+  transform: translateY(16px);
+  opacity: 0;
 }
 
 /* Pulls the second field up into .message-moment's 28px gap so the two
@@ -504,4 +530,98 @@ body {
 .stage-5__field-input:focus {
   outline: none;
   border-bottom-color: var(--color-fg);
+}
+
+/* s5_mom_24 — full-viewport collective board. Deliberately NOT a .frame
+   card: no fixed 402:874 ratio, just a plain full-viewport, responsive
+   canvas of names scattered across whatever screen it's running on. */
+.collective-board {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  background-color: #000000;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.collective-board[hidden] {
+  display: none;
+}
+
+.collective-board__names {
+  position: absolute;
+  inset: 0;
+}
+
+/* Positioned via inline left/top percentages (JS) — % positioning keeps
+   the scatter responsive across any viewport size without extra media
+   queries. */
+.collective-board__name {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.collective-board__name--active {
+  text-decoration: underline;
+}
+
+.collective-board__tooltip {
+  position: fixed;
+  max-width: min(70vw, 240px);
+  background: rgba(20, 20, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--color-fg);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.collective-board__tooltip[hidden] {
+  display: none;
+}
+
+/* Low visual priority, tucked in a corner — a manual backup mechanism,
+   not part of the experience itself. */
+/* s5_mom_24's footer: the old standalone "thank you" moment's text, now
+   typed once under the scattered names instead of its own screen. Sits
+   below the names layer and never intercepts hover/tap on them. */
+.collective-board__footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16px;
+  margin: 0;
+  padding: 0 16px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-fg);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.collective-board__export-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-family);
+  font-size: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  z-index: 20;
 }

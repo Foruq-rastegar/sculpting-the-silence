@@ -788,7 +788,7 @@
      back to back with runMessageMoment, in order, advancing to the next
      entry each time one completes. Reusable for stage 3's remaining rows.
      ------------------------------------------------------------------ */
-  function runMessageMomentQueue(containerEl, queue, onQueueComplete) {
+  function runMessageMomentQueue(containerEl, queue, onQueueComplete, onMomentStart) {
     var index = 0;
 
     function playNext() {
@@ -797,7 +797,9 @@
         return;
       }
       var data = queue[index];
+      var startingIndex = index;
       index += 1;
+      if (onMomentStart) onMomentStart(startingIndex);
       runMessageMoment(containerEl, data, playNext);
     }
 
@@ -1042,11 +1044,57 @@
     finalCta: "Call them by their name"
   };
 
+  // Background gunshot loop: starts at s3_mom_05 ("Mom???", the very
+  // start of stage 3), keeps looping underneath every moment in between,
+  // and is fully stopped/unloaded right as s3_mom_10 ("Papa?") begins.
+  var STAGE_3_GUNSHOT_START_INDEX = STAGE_3_MESSAGE_MOMENTS.indexOf(MOM_MESSAGE_DATA);
+  var STAGE_3_GUNSHOT_STOP_INDEX = STAGE_3_MESSAGE_MOMENTS.indexOf(PAPA_MESSAGE_DATA);
+  var STAGE_3_GUNSHOT_VOLUME = 0.35;
+
+  // Longer underscore loop: also starts at s3_mom_05, but — unlike the
+  // gunshot track — keeps looping underneath all of stage 3, all of stage
+  // 4, and into stage 5's merged 11780+form screen. It's only stopped once
+  // the form is actually submitted (see initStage5).
+  var STAGE_3_UNDERSCORE_START_INDEX = STAGE_3_GUNSHOT_START_INDEX;
+  var STAGE_3_UNDERSCORE_VOLUME = 0.25;
+
+  function startLoopingAudio(audioEl, volume) {
+    if (!audioEl) return;
+    audioEl.loop = true;
+    audioEl.volume = volume;
+    audioEl.load();
+    var playPromise = audioEl.play();
+    if (playPromise && playPromise.catch) {
+      playPromise.catch(function () {});
+    }
+  }
+
   function initStage3() {
     var momentMountEl = document.getElementById("stage-3-moment-mount");
-    runMessageMomentQueue(momentMountEl, STAGE_3_MESSAGE_MOMENTS, function () {
-      runNameThemMoment(momentMountEl, NAME_THEM_MOMENT_DATA, goToNextStage);
-    });
+    var gunshotAudioEl = document.getElementById("stage-3-gunshot-audio");
+    var underscoreAudioEl = document.getElementById("stage-3-underscore-audio");
+
+    runMessageMomentQueue(
+      momentMountEl,
+      STAGE_3_MESSAGE_MOMENTS,
+      function () {
+        runNameThemMoment(momentMountEl, NAME_THEM_MOMENT_DATA, goToNextStage);
+      },
+      function (momentIndex) {
+        if (momentIndex === STAGE_3_UNDERSCORE_START_INDEX) {
+          startLoopingAudio(underscoreAudioEl, STAGE_3_UNDERSCORE_VOLUME);
+        }
+
+        if (!gunshotAudioEl) return;
+
+        if (momentIndex === STAGE_3_GUNSHOT_START_INDEX) {
+          startLoopingAudio(gunshotAudioEl, STAGE_3_GUNSHOT_VOLUME);
+        } else if (momentIndex === STAGE_3_GUNSHOT_STOP_INDEX) {
+          gunshotAudioEl.pause();
+          gunshotAudioEl.currentTime = 0;
+        }
+      }
+    );
   }
 
   registerStageEnter(3, initStage3);
@@ -1144,10 +1192,71 @@
     playNext();
   }
 
-  // Closing moment after all 9 names: no cta, no audio — types "11780"
-  // and its subtext, waits a short beat after typing finishes, then
-  // clears and advances.
-  function runFinalNameMoment(containerEl, onComplete) {
+  function initStage4() {
+    var momentMountEl = document.getElementById("stage-4-moment-mount");
+    // s4_mom_22 ("11780" reveal) now opens stage 5's merged screen (see
+    // runFinalNameAndFormMoment) instead of running as its own moment here,
+    // so all 9 named moments advance straight into stage 5.
+    runNameMomentQueue(momentMountEl, NAME_MOMENTS_DATA, goToNextStage);
+  }
+
+  registerStageEnter(4, initStage4);
+
+  /* ------------------------------------------------------------------
+     Stage 5 — s4_mom_22 + s5_mom_23 merged into one continuous screen
+     (runFinalNameAndFormMoment), then s5_mom_24 (collective board) the
+     instant the form is submitted. No auto-advance, no loop after the
+     board — it's the last moment in the current build.
+     ------------------------------------------------------------------ */
+
+  // Now shown as s5_mom_24's small footer instead of its own screen —
+  // placeholder text, swap in the real closing statement here when ready.
+  var CLOSING_STATEMENT_TEXT = "Thank you for calling them out of silence.";
+
+  // localStorage-backed entry store shared by s5_mom_23 (writes) and
+  // s5_mom_24 (reads). Each entry is { name, story }.
+  var ENTRIES_STORAGE_KEY = "sculptingTheSilenceEntries";
+
+  function loadEntries() {
+    try {
+      var raw = window.localStorage.getItem(ENTRIES_STORAGE_KEY);
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function addEntry(name, story) {
+    var entries = loadEntries();
+    entries.push({ name: name, story: story });
+    try {
+      window.localStorage.setItem(ENTRIES_STORAGE_KEY, JSON.stringify(entries));
+    } catch (err) {
+      // Storage unavailable/full — fail silently, nothing else to do here.
+    }
+  }
+
+  // Slides a freshly-appended element in from 16px below/faded-out to its
+  // resting place — same forced-reflow-then-rAF pattern as the stage-3
+  // leak video enter transition. enterClassName is the modifier that holds
+  // the pre-transition state; the base class already carries the
+  // transition + resting state, so removing it plays the slide-in.
+  function slideElIntoView(containerEl, el, enterClassName, onDone) {
+    el.classList.add(enterClassName);
+    containerEl.appendChild(el);
+    el.getBoundingClientRect(); // force reflow before enabling the transition
+    requestAnimationFrame(function () {
+      el.classList.remove(enterClassName);
+    });
+    setTimeout(onDone, 500);
+  }
+
+  // Merged s4_mom_22 ("11780" reveal) + s5_mom_23 (closing form) — one
+  // continuous frame instead of a hard cut. The title+subtext stay on
+  // screen once typed, and the form's two fields + submit button slide in
+  // below them one after another rather than appearing as a fresh screen.
+  function runFinalNameAndFormMoment(containerEl, onSubmit) {
     containerEl.innerHTML = "";
 
     var titleEl = document.createElement("p");
@@ -1158,110 +1267,232 @@
     subtextEl.className = "frame__body";
     containerEl.appendChild(subtextEl);
 
+    function showForm() {
+      var nameFieldWrap = document.createElement("div");
+      nameFieldWrap.className = "stage-5__field";
+      var nameLabel = document.createElement("label");
+      nameLabel.className = "stage-5__field-label";
+      nameLabel.textContent = "How do you call them?";
+      nameLabel.setAttribute("for", "stage-5-name-input");
+      var nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.id = "stage-5-name-input";
+      nameInput.className = "stage-5__field-input";
+      nameInput.placeholder = "11780";
+      nameFieldWrap.appendChild(nameLabel);
+      nameFieldWrap.appendChild(nameInput);
+
+      var recallFieldWrap = document.createElement("div");
+      recallFieldWrap.className = "stage-5__field";
+      var recallLabel = document.createElement("label");
+      recallLabel.className = "stage-5__field-label";
+      recallLabel.textContent = "How do you recall them?";
+      recallLabel.setAttribute("for", "stage-5-recall-input");
+      var recallInput = document.createElement("input");
+      recallInput.type = "text";
+      recallInput.id = "stage-5-recall-input";
+      recallInput.className = "stage-5__field-input";
+      recallInput.placeholder = "Perhaps they …";
+      recallInput.maxLength = 80;
+      recallFieldWrap.appendChild(recallLabel);
+      recallFieldWrap.appendChild(recallInput);
+
+      var actionEl = document.createElement("div");
+      actionEl.className = "message-moment__action stage-5__submit-action";
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "button message-moment__button";
+      button.textContent = "Call them out of silence";
+      bindTapAndClick(button, function () {
+        var nameValue = nameInput.value.trim();
+        var recallValue = recallInput.value.trim();
+        var participated = nameValue !== "" || recallValue !== "";
+
+        if (participated) {
+          // TODO: drive the field/dots "participated" visual once that
+          // layer exists.
+          addEntry(nameValue, recallValue);
+        } else {
+          // TODO: drive the field/dots "did not participate" visual once
+          // that layer exists.
+        }
+
+        onSubmit();
+      });
+      actionEl.appendChild(button);
+
+      slideElIntoView(containerEl, nameFieldWrap, "stage-5__field--enter", function () {
+        slideElIntoView(containerEl, recallFieldWrap, "stage-5__field--enter", function () {
+          slideElIntoView(containerEl, actionEl, "stage-5__submit-action--enter", function () {
+            presentCtaButton(button);
+          });
+        });
+      });
+    }
+
     typeText(titleEl, "11780", STAGE_4_CHARS_PER_SECOND, function () {
       typeText(
         subtextEl,
         "Their body, perhaps, was never identified by their family. But there might still be a human to call them by a name, to recall them by a memory…",
         STAGE_4_CHARS_PER_SECOND,
         function () {
-          setTimeout(function () {
-            containerEl.innerHTML = ""; // instant, no fade
-            onComplete();
-          }, 400);
+          setTimeout(showForm, 400);
         }
       );
     });
   }
 
-  function initStage4() {
-    var momentMountEl = document.getElementById("stage-4-moment-mount");
-    runNameMomentQueue(momentMountEl, NAME_MOMENTS_DATA, function () {
-      runFinalNameMoment(momentMountEl, goToNextStage);
-    });
+  var COLLECTIVE_BOARD_NAME_SATURATION = 70; // %
+  var COLLECTIVE_BOARD_NAME_LIGHTNESS = 65; // % — stays readable on black
+  var COLLECTIVE_BOARD_EDGE_MARGIN_PERCENT = 6; // keep names off the very edge
+
+  // Downloads the current localStorage entries array as entries.json —
+  // a manual backup mechanism, not part of the experience itself.
+  function exportEntriesAsJSON() {
+    var json = JSON.stringify(loadEntries(), null, 2);
+    var blob = new Blob([json], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "entries.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
-  registerStageEnter(4, initStage4);
+  // Keeps the tooltip on-screen near its name, regardless of where that
+  // name landed in the random scatter.
+  function positionTooltipNear(tooltipEl, nameEl) {
+    var margin = 8;
+    var nameRect = nameEl.getBoundingClientRect();
 
-  /* ------------------------------------------------------------------
-     Stage 5 — closing form moment. Two fields (name + recollection),
-     both optional, then a submit button. For now stage 5 stops after
-     this one moment: no auto-advance, no loop — more moments (and the
-     field/dots visual layer the participated/did-not-participate
-     branch below will eventually drive) come later.
-     ------------------------------------------------------------------ */
+    tooltipEl.style.left = nameRect.left + "px";
+    tooltipEl.style.top = nameRect.bottom + margin + "px";
 
-  // Placeholder — swap in the real closing statement here when ready.
-  var CLOSING_STATEMENT_TEXT = "Thank you for calling them out of silence.";
+    var tooltipRect = tooltipEl.getBoundingClientRect();
+    var left = nameRect.left;
+    var top = nameRect.bottom + margin;
 
-  function runClosingFormMoment(containerEl) {
-    containerEl.innerHTML = "";
+    if (left + tooltipRect.width > window.innerWidth - margin) {
+      left = window.innerWidth - margin - tooltipRect.width;
+    }
+    if (left < margin) left = margin;
 
-    var nameFieldWrap = document.createElement("div");
-    nameFieldWrap.className = "stage-5__field";
-    var nameLabel = document.createElement("label");
-    nameLabel.className = "stage-5__field-label";
-    nameLabel.textContent = "How do you call them?";
-    nameLabel.setAttribute("for", "stage-5-name-input");
-    var nameInput = document.createElement("input");
-    nameInput.type = "text";
-    nameInput.id = "stage-5-name-input";
-    nameInput.className = "stage-5__field-input";
-    nameInput.placeholder = "11780";
-    nameFieldWrap.appendChild(nameLabel);
-    nameFieldWrap.appendChild(nameInput);
-    containerEl.appendChild(nameFieldWrap);
+    if (top + tooltipRect.height > window.innerHeight - margin) {
+      top = nameRect.top - margin - tooltipRect.height;
+    }
+    if (top < margin) top = margin;
 
-    var recallFieldWrap = document.createElement("div");
-    recallFieldWrap.className = "stage-5__field";
-    var recallLabel = document.createElement("label");
-    recallLabel.className = "stage-5__field-label";
-    recallLabel.textContent = "How do you recall them?";
-    recallLabel.setAttribute("for", "stage-5-recall-input");
-    var recallInput = document.createElement("input");
-    recallInput.type = "text";
-    recallInput.id = "stage-5-recall-input";
-    recallInput.className = "stage-5__field-input";
-    recallInput.placeholder = "Perhaps they …";
-    recallInput.maxLength = 80;
-    recallFieldWrap.appendChild(recallLabel);
-    recallFieldWrap.appendChild(recallInput);
-    containerEl.appendChild(recallFieldWrap);
+    tooltipEl.style.left = left + "px";
+    tooltipEl.style.top = top + "px";
+  }
 
-    var actionEl = document.createElement("div");
-    actionEl.className = "message-moment__action";
-    containerEl.appendChild(actionEl);
+  // s5_mom_24 — full-viewport collective board: every stored entry's
+  // name scattered at a random position/color; hover or tap reveals its
+  // story near it. Zero entries just leaves the dark background empty.
+  function renderCollectiveBoard(boardEl) {
+    var namesMountEl = document.getElementById("stage-5-board-names");
+    var tooltipEl = document.getElementById("stage-5-board-tooltip");
+    var exportBtn = document.getElementById("stage-5-board-export-btn");
+    var footerEl = document.getElementById("stage-5-board-footer");
+    if (!namesMountEl || !tooltipEl) return;
 
-    var button = document.createElement("button");
-    button.type = "button";
-    button.className = "button message-moment__button";
-    button.textContent = "Call them out of silence";
-    bindTapAndClick(button, function () {
-      var participated = nameInput.value.trim() !== "" || recallInput.value.trim() !== "";
+    if (footerEl) {
+      footerEl.textContent = "";
+      typeText(footerEl, CLOSING_STATEMENT_TEXT, 14);
+    }
 
-      if (participated) {
-        // TODO: drive the field/dots "participated" visual once that
-        // layer exists.
-      } else {
-        // TODO: drive the field/dots "did not participate" visual once
-        // that layer exists.
+    namesMountEl.innerHTML = "";
+    var activeNameEl = null;
+
+    function hideTooltip() {
+      tooltipEl.hidden = true;
+      tooltipEl.textContent = "";
+      if (activeNameEl) {
+        activeNameEl.classList.remove("collective-board__name--active");
+        activeNameEl = null;
       }
+    }
 
-      containerEl.innerHTML = ""; // instant, no fade
+    function showTooltip(nameEl, story) {
+      if (activeNameEl) {
+        activeNameEl.classList.remove("collective-board__name--active");
+      }
+      activeNameEl = nameEl;
+      nameEl.classList.add("collective-board__name--active");
+      tooltipEl.textContent = story || "";
+      tooltipEl.hidden = false;
+      positionTooltipNear(tooltipEl, nameEl);
+    }
 
-      var closingTextEl = document.createElement("p");
-      closingTextEl.className = "frame__body";
-      containerEl.appendChild(closingTextEl);
-      typeText(closingTextEl, CLOSING_STATEMENT_TEXT, 14);
-      // No onComplete: the app stops here for now — no button, no
-      // auto-advance, no loop.
+    loadEntries().forEach(function (entry) {
+      var nameEl = document.createElement("span");
+      nameEl.className = "collective-board__name";
+      nameEl.textContent = entry.name;
+
+      var hue = Math.floor(Math.random() * 360);
+      nameEl.style.color = "hsl(" + hue + ", " + COLLECTIVE_BOARD_NAME_SATURATION + "%, " + COLLECTIVE_BOARD_NAME_LIGHTNESS + "%)";
+
+      var x = COLLECTIVE_BOARD_EDGE_MARGIN_PERCENT + Math.random() * (100 - COLLECTIVE_BOARD_EDGE_MARGIN_PERCENT * 2);
+      var y = COLLECTIVE_BOARD_EDGE_MARGIN_PERCENT + Math.random() * (100 - COLLECTIVE_BOARD_EDGE_MARGIN_PERCENT * 2);
+      nameEl.style.left = x + "%";
+      nameEl.style.top = y + "%";
+
+      // Desktop hover.
+      nameEl.addEventListener("mouseenter", function () {
+        showTooltip(nameEl, entry.story);
+      });
+      nameEl.addEventListener("mouseleave", hideTooltip);
+
+      // Touch tap (also fires for a mouse click, which is harmless —
+      // mouseenter already shows it in that case). stopPropagation keeps
+      // this from immediately re-triggering the document "tap elsewhere"
+      // handler below.
+      nameEl.addEventListener("click", function (event) {
+        event.stopPropagation();
+        showTooltip(nameEl, entry.story);
+      });
+
+      namesMountEl.appendChild(nameEl);
     });
-    actionEl.appendChild(button);
-    presentCtaButton(button);
+
+    document.addEventListener("click", hideTooltip);
+
+    if (exportBtn) {
+      exportBtn.addEventListener("click", function (event) {
+        event.stopPropagation();
+        exportEntriesAsJSON();
+      });
+    }
+  }
+
+  function showCollectiveBoard() {
+    var frameEl = document.querySelector("#stage-5 .frame");
+    if (frameEl) frameEl.style.display = "none";
+
+    var boardEl = document.getElementById("stage-5-board");
+    if (!boardEl) return;
+    boardEl.hidden = false;
+    renderCollectiveBoard(boardEl);
   }
 
   function initStage5() {
     var momentMountEl = document.getElementById("stage-5-moment-mount");
-    runClosingFormMoment(momentMountEl);
+    runFinalNameAndFormMoment(momentMountEl, function onSubmit() {
+      // Long background track (started at s3_mom_05) ends the instant the
+      // form is submitted; s5_mom_24 (the board) has no underscore audio.
+      var underscoreAudioEl = document.getElementById("stage-3-underscore-audio");
+      if (underscoreAudioEl) {
+        underscoreAudioEl.pause();
+        underscoreAudioEl.currentTime = 0;
+      }
+
+      momentMountEl.innerHTML = ""; // instant, no fade
+      showCollectiveBoard(); // straight to s5_mom_24 — no standalone thank-you screen
+    });
   }
 
   registerStageEnter(5, initStage5);
