@@ -73,7 +73,7 @@
       var button = document.createElement("button");
       button.type = "button";
       button.className = "button message-moment__button";
-      button.textContent = "Call them by their name";
+      button.textContent = "Call them by name";
       STS.bindTapAndClick(button, function () {
         containerEl.innerHTML = ""; // instant, no fade
         onComplete();
