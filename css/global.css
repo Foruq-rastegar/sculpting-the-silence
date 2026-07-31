@@ -599,7 +599,6 @@ body {
   position: fixed;
   max-width: min(70vw, 240px);
   background: rgba(20, 20, 20, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.25);
   color: var(--color-fg);
   font-size: 12px;
   line-height: 1.5;
