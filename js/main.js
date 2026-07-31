@@ -1347,6 +1347,69 @@
   var COLLECTIVE_BOARD_NAME_LIGHTNESS = 65; // % — stays readable on black
   var COLLECTIVE_BOARD_EDGE_MARGIN_PERCENT = 6; // keep names off the very edge
 
+  // A-minor pentatonic (A C D E G) across 3 octaves — every combination of
+  // notes in this set sounds consonant, so a random pick per name never
+  // clashes with another.
+  var COLLECTIVE_BOARD_NOTE_FREQUENCIES = [
+    220.00, 261.63, 293.66, 329.63, 392.00, // A3 C4 D4 E4 G4
+    440.00, 523.25, 587.33, 659.25, 783.99, // A4 C5 D5 E5 G5
+    880.00, 1046.50, 1174.66, 1318.51, 1567.98 // A5 C6 D6 E6 G6
+  ];
+
+  // Deterministic string hash (no crypto needed — just needs to spread
+  // inputs evenly across the scale), so the same entry always lands on the
+  // same note within a render instead of re-randomizing on every hover.
+  function hashStringToIndex(str, modulo) {
+    var hash = 0;
+    for (var i = 0; i < str.length; i += 1) {
+      hash = (hash * 31 + str.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash) % modulo;
+  }
+
+  // Lazily created — browsers require it to be spun up from/near a user
+  // gesture, and the board only exists after the stage-5 form submit click.
+  var collectiveBoardAudioCtx = null;
+
+  // Short, soft-edged tone for a name's note: linear attack then release
+  // envelope on the gain node so the oscillator never starts/stops at a
+  // nonzero amplitude (which would otherwise click).
+  function playCollectiveBoardNote(frequency) {
+    if (!frequency) return;
+
+    var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    if (!collectiveBoardAudioCtx) {
+      collectiveBoardAudioCtx = new AudioContextClass();
+    }
+    var ctx = collectiveBoardAudioCtx;
+    if (ctx.state === "suspended") {
+      ctx.resume();
+    }
+
+    var now = ctx.currentTime;
+    var duration = 0.4;
+    var attack = 0.03;
+    var release = 0.15;
+    var peakGain = 0.2;
+
+    var oscillator = ctx.createOscillator();
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
+
+    var gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(peakGain, now + attack);
+    gainNode.gain.setValueAtTime(peakGain, now + duration - release);
+    gainNode.gain.linearRampToValueAtTime(0, now + duration);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    oscillator.start(now);
+    oscillator.stop(now + duration);
+  }
+
   // Downloads the current localStorage entries array as entries.json —
   // a manual backup mechanism, not part of the experience itself.
   function exportEntriesAsJSON() {
@@ -1417,7 +1480,12 @@
       }
     }
 
-    function showTooltip(nameEl, story) {
+    function showTooltip(nameEl, story, noteFrequency) {
+      // Only actually a new activation (and thus a note) if this name
+      // wasn't already the active one — keeps a redundant click on an
+      // already-hovered name (mouseenter already fired) from double-playing.
+      var isNewActivation = activeNameEl !== nameEl;
+
       if (activeNameEl) {
         activeNameEl.classList.remove("collective-board__name--active");
       }
@@ -1426,9 +1494,13 @@
       tooltipEl.textContent = story || "";
       tooltipEl.hidden = false;
       positionTooltipNear(tooltipEl, nameEl);
+
+      if (isNewActivation) {
+        playCollectiveBoardNote(noteFrequency);
+      }
     }
 
-    loadEntries().forEach(function (entry) {
+    loadEntries().forEach(function (entry, index) {
       var nameEl = document.createElement("span");
       nameEl.className = "collective-board__name";
       nameEl.textContent = entry.name;
@@ -1441,9 +1513,15 @@
       nameEl.style.left = x + "%";
       nameEl.style.top = y + "%";
 
+      // Assigned once per entry (index keeps it stable even for two
+      // entries with the same/blank name) and reused on every hover/tap —
+      // never re-randomized.
+      var noteIndex = hashStringToIndex(index + "|" + entry.name, COLLECTIVE_BOARD_NOTE_FREQUENCIES.length);
+      var noteFrequency = COLLECTIVE_BOARD_NOTE_FREQUENCIES[noteIndex];
+
       // Desktop hover.
       nameEl.addEventListener("mouseenter", function () {
-        showTooltip(nameEl, entry.story);
+        showTooltip(nameEl, entry.story, noteFrequency);
       });
       nameEl.addEventListener("mouseleave", hideTooltip);
 
@@ -1453,7 +1531,7 @@
       // handler below.
       nameEl.addEventListener("click", function (event) {
         event.stopPropagation();
-        showTooltip(nameEl, entry.story);
+        showTooltip(nameEl, entry.story, noteFrequency);
       });
 
       namesMountEl.appendChild(nameEl);
