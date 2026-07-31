@@ -1371,9 +1371,20 @@
   // gesture, and the board only exists after the stage-5 form submit click.
   var collectiveBoardAudioCtx = null;
 
-  // Short, soft-edged tone for a name's note: linear attack then release
-  // envelope on the gain node so the oscillator never starts/stops at a
-  // nonzero amplitude (which would otherwise click).
+  // Fundamental (loudest) plus two quiet upper partials (~2x, ~3x) — a
+  // rough handpan/hang-drum approximation: those instruments ring with a
+  // metallic, bell-like color from overtones layered above the struck
+  // note, rather than a single flat pitch.
+  var COLLECTIVE_BOARD_NOTE_PARTIALS = [
+    { multiplier: 1, gain: 1.0 },
+    { multiplier: 2, gain: 0.28 },
+    { multiplier: 3, gain: 0.12 }
+  ];
+
+  // Soft-attack, long-decay tone for a name's note: a master gain node
+  // carries the envelope (fast fade-in, slow exponential fade-out so it
+  // rings out like a struck handpan instead of cutting off sharply), fed
+  // by one oscillator per partial above, each pre-scaled to its own level.
   function playCollectiveBoardNote(frequency) {
     if (!frequency) return;
 
@@ -1389,25 +1400,33 @@
     }
 
     var now = ctx.currentTime;
-    var duration = 0.4;
-    var attack = 0.03;
-    var release = 0.15;
-    var peakGain = 0.2;
+    var attack = 0.02;
+    var decay = 2.0;
+    var stopAt = now + attack + decay;
+    var peakGain = 0.18;
 
-    var oscillator = ctx.createOscillator();
-    oscillator.type = "sine";
-    oscillator.frequency.value = frequency;
+    var masterGain = ctx.createGain();
+    // exponentialRampToValueAtTime can't target 0, so ramp to a value low
+    // enough to read as silent, then snap the rest of the way there.
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.linearRampToValueAtTime(peakGain, now + attack);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+    masterGain.gain.setValueAtTime(0, stopAt);
+    masterGain.connect(ctx.destination);
 
-    var gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(peakGain, now + attack);
-    gainNode.gain.setValueAtTime(peakGain, now + duration - release);
-    gainNode.gain.linearRampToValueAtTime(0, now + duration);
+    COLLECTIVE_BOARD_NOTE_PARTIALS.forEach(function (partial) {
+      var oscillator = ctx.createOscillator();
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency * partial.multiplier;
 
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    oscillator.start(now);
-    oscillator.stop(now + duration);
+      var partialGain = ctx.createGain();
+      partialGain.gain.value = partial.gain;
+
+      oscillator.connect(partialGain);
+      partialGain.connect(masterGain);
+      oscillator.start(now);
+      oscillator.stop(stopAt);
+    });
   }
 
   // Downloads the current localStorage entries array as entries.json —
