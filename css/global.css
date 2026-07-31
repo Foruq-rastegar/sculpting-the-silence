@@ -122,7 +122,7 @@ body {
   color: var(--color-fg);
   opacity: 0.85;
   margin: 0;
-  max-width: 40ch;
+  max-width: 35ch;
   margin-inline: auto;
 }
 
