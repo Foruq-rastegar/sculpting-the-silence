@@ -400,8 +400,7 @@
     if (!namesMountEl || !tooltipEl) return;
 
     if (footerEl) {
-      footerEl.textContent = "";
-      STS.typeText(footerEl, CLOSING_STATEMENT_TEXT, 14);
+      footerEl.textContent = CLOSING_STATEMENT_TEXT; // shows instantly, no typing animation
     }
 
     namesMountEl.innerHTML = "";

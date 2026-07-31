@@ -428,7 +428,13 @@
       var responseText = document.createElement("p");
       responseText.className = "frame__body message-moment__response-text";
       actionEl.appendChild(responseText);
-      typeText(responseText, response.value, 14);
+      // "No response"/"No connection" show instantly — every other
+      // response text still types in char-by-char.
+      if (response.value === "No response" || response.value === "No connection") {
+        responseText.textContent = response.value;
+      } else {
+        typeText(responseText, response.value, 14);
+      }
 
       if (isFinalAttempt) {
         setTimeout(finishMoment, 3500);
