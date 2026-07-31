@@ -168,15 +168,15 @@ body {
 .stage-1__icon {
   width: 110px;
   height: auto;
-  margin-bottom: 48px;
+  margin-bottom: 24px;
 }
 
 .stage-1__title {
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .stage-1__body {
-  margin-bottom: 56px;
+  margin-bottom: 28px;
 }
 
 /* ==========================================================================
