@@ -361,46 +361,11 @@ body {
   transform-origin: center;
 }
 
-/* Stacks a video above its caption (used by s3_mom_10) instead of the
-   default row layout .message-moment__action would otherwise give
-   them as plain siblings. */
-.message-moment__video-response {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
 .message-moment__response-video {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
   border-radius: 0;
-  transition: transform 500ms ease, opacity 500ms ease;
-  transform: translateY(0);
-  opacity: 1;
-}
-
-.message-moment__response-video-caption {
-  margin: 0;
-  transition: transform 500ms ease, opacity 500ms ease;
-  transform: translateY(0);
-  opacity: 1;
-}
-
-/* One-off exit/enter transitions for s3_mom_10 ("Papa?"): the typed text
-   slides up and fades out, then the video (and its caption) slide/fade
-   into place. Everywhere else in the app swaps content instantly. */
-.message-moment__response-text--exit {
-  transition: transform 500ms ease, opacity 500ms ease;
-  transform: translateY(-16px);
-  opacity: 0;
-}
-
-.message-moment__response-video--enter,
-.message-moment__response-video-caption--enter {
-  transform: translateY(16px);
-  opacity: 0;
 }
 
 /* Rotates for a caller-supplied animation-iteration-count (set inline per
@@ -419,27 +384,6 @@ body {
 @keyframes message-moment-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
-}
-
-/* Wraps the "name them" moment's image. Persists for the rest of the
-   moment once shown; only its transform changes (shrink on the first
-   "more" click) while the text/button below it keep swapping. */
-.name-them-moment__image-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transition: transform 500ms ease;
-  transform: translateY(0) scale(1);
-}
-
-.name-them-moment__image-wrap--shrunk {
-  transform: translateY(-16px) scale(0.9);
-}
-
-/* Pulls the caption/reaction zone closer to the image — .message-moment's
-   28px gap otherwise reads as too much space here specifically. */
-.name-them-moment__zone-text {
-  margin-top: -14px;
 }
 
 /* Full-viewport blackout overlay, created/removed on demand by the

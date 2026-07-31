@@ -312,7 +312,9 @@
     // Every stage-3 leak image (standalone or within a chain): a slow,
     // gentle zoom-in over the image's full display duration, so it's
     // subtly still growing right up until it's cleared from the screen.
-    function renderZoomingLeakImage(mountEl, src, durationMs, onDone) {
+    // An optional caption types in word-by-word below it, fire-and-forget
+    // (doesn't gate onDone/durationMs).
+    function renderZoomingLeakImage(mountEl, src, durationMs, onDone, caption) {
       var img = document.createElement("img");
       img.className = "message-moment__response-image";
       img.src = src;
@@ -325,69 +327,22 @@
         img.style.transform = "scale(1.08)";
       });
 
+      if (caption) {
+        var captionEl = document.createElement("p");
+        captionEl.className = "frame__body message-moment__response-text";
+        mountEl.appendChild(captionEl);
+        typeText(captionEl, caption, 14, null, "word");
+      }
+
       setTimeout(onDone, durationMs);
     }
 
-    // Plays the exit half of s3_mom_10's one-off transition: the given
-    // element slides up and fades out over ~500ms, then is removed.
-    function slideOutThenRemove(el, onDone) {
-      el.classList.add("message-moment__response-text--exit");
-      setTimeout(function () {
-        el.remove();
-        onDone();
-      }, 500);
-    }
-
-    // Plays the enter half: video (and optional caption) mount in a
-    // pre-transition "below and faded out" state, then a forced reflow +
-    // rAF removes that state so the transition to normal plays.
-    function playLeakVideoWithSlideFadeIn(mountEl, item, onEnded) {
-      var wrapperEl = document.createElement("div");
-      wrapperEl.className = "message-moment__video-response";
-      mountEl.appendChild(wrapperEl);
-
-      var video = document.createElement("video");
-      video.className = "message-moment__response-video message-moment__response-video--enter";
-      video.src = item.value;
-      video.autoplay = true;
-      video.playsInline = true;
-      video.preload = "none";
-      wrapperEl.appendChild(video);
-
-      var captionEl = null;
-      if (item.caption) {
-        captionEl = document.createElement("p");
-        captionEl.className = "frame__body message-moment__response-video-caption message-moment__response-video-caption--enter";
-        captionEl.textContent = item.caption;
-        wrapperEl.appendChild(captionEl);
-      }
-
-      video.getBoundingClientRect(); // force reflow before enabling the transition
-      requestAnimationFrame(function () {
-        video.classList.remove("message-moment__response-video--enter");
-        if (captionEl) captionEl.classList.remove("message-moment__response-video-caption--enter");
-      });
-
-      var handleEnded = function () {
-        video.removeEventListener("ended", handleEnded);
-        onEnded();
-      };
-      video.addEventListener("ended", handleEnded);
-      video.load();
-      var playPromise = video.play();
-      if (playPromise && playPromise.catch) {
-        playPromise.catch(function () {});
-      }
-    }
-
-    // A response can be an ordered array of leaks (e.g. text caption then
-    // video) shown one after another instead of a single response; the
-    // whole chain is terminal, so it only ever runs once the message text
-    // has already been cleared by the caller. chainTransition is an
-    // opt-in per-attempt flag: "slide-fade" plays s3_mom_10's one-off
-    // typed-text-slides-out / video-slides-in transition; everywhere else
-    // it's undefined and every chain step stays instant, as before.
-    function showLeakChain(responses, chainIndex, chainTransition) {
+    // A response can be an ordered array of leaks (e.g. text then video)
+    // shown one after another instead of a single response; the whole
+    // chain is terminal, so it only ever runs once the message text has
+    // already been cleared by the caller. Every chain step is instant, as
+    // with any other leak.
+    function showLeakChain(responses, chainIndex) {
       actionEl.innerHTML = ""; // instant, no fade
       var item = responses[chainIndex];
       var isLastInChain = chainIndex === responses.length - 1;
@@ -396,36 +351,21 @@
         if (isLastInChain) {
           finishMoment();
         } else {
-          showLeakChain(responses, chainIndex + 1, chainTransition);
+          showLeakChain(responses, chainIndex + 1);
         }
       }
 
       if (item.type === "video") {
-        if (chainTransition === "slide-fade") {
-          playLeakVideoWithSlideFadeIn(actionEl, item, advanceChain);
-        } else {
-          playLeakVideo(actionEl, item.value, advanceChain);
-        }
+        playLeakVideo(actionEl, item.value, advanceChain);
         return;
       }
 
       if (item.type === "image") {
-        renderZoomingLeakImage(actionEl, item.value, item.displayMs || 3500, advanceChain);
+        renderZoomingLeakImage(actionEl, item.value, item.displayMs || 3500, advanceChain, item.caption);
         return;
       }
 
       // type === "text"
-      if (chainTransition === "slide-fade") {
-        var typedTextEl = document.createElement("p");
-        typedTextEl.className = "frame__body message-moment__response-text";
-        actionEl.appendChild(typedTextEl);
-        typeText(typedTextEl, item.value, 14, function () {
-          setTimeout(function () {
-            slideOutThenRemove(typedTextEl, advanceChain);
-          }, 600);
-        });
-        return;
-      }
 
       var chainTextEl = document.createElement("p");
       chainTextEl.className = "frame__body message-moment__response-text";
@@ -483,13 +423,13 @@
       if (Array.isArray(response)) {
         // A leak chain is always terminal.
         clearMessageText();
-        showLeakChain(response, 0, attempt.chainTransition);
+        showLeakChain(response, 0);
         return;
       }
 
       if (response.type === "image") {
         clearMessageText();
-        renderZoomingLeakImage(actionEl, response.value, 3500, finishMoment);
+        renderZoomingLeakImage(actionEl, response.value, 3500, finishMoment, response.caption);
         return;
       }
 

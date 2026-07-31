@@ -11,20 +11,40 @@
   var STS = window.STS;
 
   var MOM_MESSAGE_DATA = {
-    message: "Mom???",
+    message: "Mom",
     attempts: [
-      { cta: "Connect", loadSpins: 4, response: { type: "text", value: "No response" } },
-      { cta: "Try again", loadSpins: 3, response: { type: "text", value: "No response" } },
-      { cta: "Try again", loadSpins: 2, response: { type: "text", value: "No response" } },
+      {
+        cta: "Connect",
+        loadSpins: 4,
+        response: { type: "text", value: "No response" },
+        nextMessage: { text: "Mom??" }
+      },
+      {
+        cta: "Try again",
+        loadSpins: 3,
+        response: { type: "text", value: "No response" },
+        nextMessage: { text: "Hon??" }
+      },
+      {
+        cta: "Try again",
+        loadSpins: 2,
+        response: { type: "text", value: "No response" },
+        nextMessage: { text: "Give me an update please" }
+      },
       { cta: "Please try again", loadSpins: 1, response: { type: "image", value: "assets/images/s3_leak_01_img.png" } }
     ]
   };
 
   var WHAT_IS_HAPPENING_MESSAGE_DATA = {
-    message: "What is happening there?",
+    message: "What the hell is happening there?",
     attempts: [
       { cta: "send", loadSpins: 4, response: { type: "text", value: "No connection" } },
-      { cta: "Try again", loadSpins: 3, response: { type: "text", value: "No connection" } },
+      {
+        cta: "Try again",
+        loadSpins: 3,
+        response: { type: "text", value: "No connection" },
+        nextMessage: { text: "Aida?" }
+      },
       { cta: "Try again", loadSpins: 2, response: { type: "image", value: "assets/images/s3_leak_02_img.png" } }
     ]
   };
@@ -32,10 +52,25 @@
   var ARE_YOU_SAFE_MESSAGE_DATA = {
     message: "Are you safe?",
     attempts: [
-      { cta: "send", loadSpins: 4, response: { type: "text", value: "No connection" } },
-      { cta: "Try again", loadSpins: 3, response: { type: "text", value: "No connection" } },
-      { cta: "Try again", loadSpins: 2, response: { type: "text", value: "No connection" } },
-      { cta: "Please try again", loadSpins: 1, response: { type: "image", value: "assets/images/s3_leak_03_img.png" } }
+      {
+        cta: "send",
+        loadSpins: 4,
+        response: { type: "text", value: "No connection" },
+        nextMessage: { text: "For the sake of God give me a sign …" }
+      },
+      {
+        cta: "Try again",
+        loadSpins: 3,
+        response: { type: "text", value: "No connection" },
+        nextMessage: { text: "😭😭😭😭😭😭" }
+      },
+      {
+        cta: "Please try again",
+        loadSpins: 2,
+        response: { type: "text", value: "No connection" },
+        nextMessage: { text: "Dad??" }
+      },
+      { cta: "Please, please try again", loadSpins: 1, response: { type: "image", value: "assets/images/s3_leak_03_img.png" } }
     ]
   };
 
@@ -50,12 +85,6 @@
       },
       {
         cta: "Try again",
-        loadSpins: 3,
-        response: { type: "text", value: "No connection" },
-        nextMessage: { text: "Aidaaaaa???????????", fontSizeDeltaPx: 2 }
-      },
-      {
-        cta: "Pleaaaaaaaase",
         loadSpins: 4,
         response: {
           type: "audio",
@@ -71,46 +100,53 @@
     attempts: [
       {
         cta: "Connect",
-        loadSpins: 3,
+        loadSpins: 2,
         response: { type: "text", value: "No conn…" },
-        nextMessage: { text: "Ali jan?", fontSizeDeltaPx: 2 }
+        nextMessage: { text: "😭😭😭😭" }
       },
       { cta: "Connect", loadSpins: 4, response: { type: "image", value: "assets/images/s3_leak_05_img.png" } }
     ]
   };
 
-  var PAPA_MESSAGE_DATA = {
-    message: "Papa?",
+  var DAD_MESSAGE_DATA = {
+    message: "Dad?",
     attempts: [
       {
         cta: "Connect",
         loadSpins: 1,
-        // chainTransition: "slide-fade" is the one-off exception noted in
-        // showLeakChain — typed text slides up/out, then the video (with
-        // its caption) slides/fades in. Every other chain stays instant.
-        response: [
-          { type: "text", value: "Don't weep for my death. Dance!" },
-          {
-            type: "video",
-            value: "assets/video/s3_leak_07_vid.mp4",
-            caption: "Moments of Dance at the Funerals"
-          }
-        ],
-        chainTransition: "slide-fade"
-      }
+        response: { type: "text", value: "No connection" },
+        nextMessage: { text: "Do you hear me?" }
+      },
+      // Plain video leak like any other — no caption, no slide-up
+      // transition (that one-off special case has been removed).
+      { cta: "Connect", loadSpins: 4, response: { type: "video", value: "assets/video/s3_leak_07_vid.mp4" } }
     ]
   };
 
-  var JUST_LET_ME_KNOW_MESSAGE_DATA = {
-    message: "Just let me know you are alive!!",
+  var ARE_YOU_ALIVE_MESSAGE_DATA = {
+    message: "Are you alive? 😭",
     attempts: [
       {
         cta: "send",
         loadSpins: 2,
         response: { type: "text", value: "No connection" },
+        nextMessage: { text: "Tell me something!" }
+      },
+      {
+        cta: "Try again",
+        loadSpins: 4,
+        response: { type: "text", value: "#11780" },
         nextMessage: { text: "I'm begging you …" }
       },
-      { cta: "Try again", loadSpins: 4, response: { type: "text", value: "#11780" } }
+      {
+        cta: "Try again",
+        loadSpins: 1,
+        response: {
+          type: "image",
+          value: "assets/images/s3_leak_08_img.png",
+          caption: "Body #11780: Unidentified"
+        }
+      }
     ]
   };
 
@@ -120,24 +156,23 @@
     ARE_YOU_SAFE_MESSAGE_DATA,
     AIDA_MESSAGE_DATA,
     ALI_MESSAGE_DATA,
-    PAPA_MESSAGE_DATA,
-    JUST_LET_ME_KNOW_MESSAGE_DATA
+    DAD_MESSAGE_DATA,
+    ARE_YOU_ALIVE_MESSAGE_DATA
   ];
 
   var NAME_THEM_MOMENT_DATA = {
     intro: { text: "#11780?????", cta: "search" },
-    image: { src: "assets/images/s3_leak_08_img.png" },
-    captionBelow: "Body #11780: Unidentified",
     reactions: [
-      "Had any number ever made them sad?",
-      "Yes, 11780.",
-      "They wrote 'anonymous, 11780', but …",
-      "all of us read it as: my heart, my dear brother, my child, my hero …",
+      "Had any number ever made you sad?",
+      "Yes, #11780.",
+      "#11780 is not a number, that's my hero!",
+      "They wrote 'unidentified #11780', but …",
+      "We read it as my dear, my bro …",
       "Surely everyone had a name…",
       "Let me be the one who knows your name!"
     ],
     reactionCta: "more",
-    finalCta: "Call them by their name"
+    finalCta: "Call them by name"
   };
 
   /* ------------------------------------------------------------------
@@ -167,13 +202,12 @@
 
   /* ------------------------------------------------------------------
      "Name them" moment — stage 3's closing moment (s3_mom_12). Not a
-     message-moment attempt ladder: no spinner, and its cta chain is
-     intro -> search -> image + typed caption -> more (shrinks the image
-     into its permanent spot, then types reactions[0]) -> more/more/...
-     -> finalCta -> full-black beat -> onComplete. The caption and every
-     reaction after it are typed into the same "zone" beneath the image;
-     the image itself persists once shown, only shrinking once on the
-     first "more" click.
+     message-moment attempt ladder: no spinner, no image — pure text.
+     Its cta chain is intro -> search -> clear -> cycle through the 7
+     reactions one at a time (word-by-word) via "more" -> finalCta ->
+     full-black beat -> onComplete. Intro and every reaction reuse the
+     same paragraph, so each swap is an instant clear (typeText resets
+     the element before retyping) with no fade.
      ------------------------------------------------------------------ */
   function runNameThemMoment(containerEl, data, onComplete) {
     if (!containerEl) return;
@@ -187,8 +221,6 @@
     actionEl.className = "message-moment__action";
     containerEl.appendChild(actionEl);
 
-    var imageWrapEl = null;
-
     function showButton(label, onClick) {
       actionEl.innerHTML = ""; // instant, no fade
       var button = document.createElement("button");
@@ -200,25 +232,11 @@
       STS.presentCtaButton(button);
     }
 
-    // Creates (or instantly swaps in) the paragraph used for both the
-    // caption and every reaction after it — one shared "zone" beneath
-    // the image, per the spec's "same zone reactions will later use".
-    function freshZoneTextEl() {
-      var existing = containerEl.querySelector(".name-them-moment__zone-text");
-      if (existing) existing.remove(); // instant, no fade — image untouched
-      var zoneTextEl = document.createElement("p");
-      zoneTextEl.className = "frame__body message-moment__response-text name-them-moment__zone-text";
-      imageWrapEl.insertAdjacentElement("afterend", zoneTextEl);
-      return zoneTextEl;
-    }
-
     function showReaction(reactionIndex) {
       actionEl.innerHTML = ""; // instant, no fade — button gone while this reaction types in
-      var zoneTextEl = freshZoneTextEl();
-
       var isLastReaction = reactionIndex === data.reactions.length - 1;
       STS.typeText(
-        zoneTextEl,
+        textEl,
         data.reactions[reactionIndex],
         14,
         function () {
@@ -234,37 +252,8 @@
       );
     }
 
-    // First "more" click only: shrinks the image into its permanent
-    // spot/size, then starts the reaction chain.
-    function shrinkImageThenShowFirstReaction() {
-      imageWrapEl.classList.add("name-them-moment__image-wrap--shrunk");
-      setTimeout(function () {
-        showReaction(0);
-      }, 500); // matches the shrink transition duration
-    }
-
-    function showImage() {
-      textEl.remove(); // leak rule: text and leak never coexist, instant
-
-      imageWrapEl = document.createElement("div");
-      imageWrapEl.className = "name-them-moment__image-wrap";
-
-      var imgEl = document.createElement("img");
-      imgEl.className = "message-moment__response-image";
-      imgEl.src = data.image.src;
-      imgEl.alt = "";
-      imageWrapEl.appendChild(imgEl);
-
-      containerEl.insertBefore(imageWrapEl, actionEl);
-
-      var zoneTextEl = freshZoneTextEl();
-      STS.typeText(zoneTextEl, data.captionBelow, 14, function () {
-        showButton(data.reactionCta, shrinkImageThenShowFirstReaction);
-      });
-    }
-
     function finish() {
-      containerEl.innerHTML = ""; // instant, no fade — image, text, button all gone
+      containerEl.innerHTML = ""; // instant, no fade — text, button all gone
       STS.coverViewportInBlack(1000, onComplete);
     }
 
@@ -273,17 +262,19 @@
       data.intro.text,
       14,
       function () {
-        showButton(data.intro.cta, showImage);
+        showButton(data.intro.cta, function () {
+          showReaction(0);
+        });
       },
       "word"
     );
   }
 
-  // Background gunshot loop: starts at s3_mom_05 ("Mom???", the very
+  // Background gunshot loop: starts at s3_mom_05 ("Mom", the very
   // start of stage 3), keeps looping underneath every moment in between,
-  // and is fully stopped/unloaded right as s3_mom_10 ("Papa?") begins.
+  // and is fully stopped/unloaded right as s3_mom_10 ("Dad?") begins.
   var STAGE_3_GUNSHOT_START_INDEX = STAGE_3_MESSAGE_MOMENTS.indexOf(MOM_MESSAGE_DATA);
-  var STAGE_3_GUNSHOT_STOP_INDEX = STAGE_3_MESSAGE_MOMENTS.indexOf(PAPA_MESSAGE_DATA);
+  var STAGE_3_GUNSHOT_STOP_INDEX = STAGE_3_MESSAGE_MOMENTS.indexOf(DAD_MESSAGE_DATA);
 
   // Longer underscore loop: also starts at s3_mom_05, but — unlike the
   // gunshot track — keeps looping underneath all of stage 3, all of stage
