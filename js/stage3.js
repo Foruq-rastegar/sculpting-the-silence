@@ -158,16 +158,20 @@
 
   var NAME_THEM_MOMENT_DATA = {
     intro: { text: "#11780?????", cta: "search" },
-    reactions: [
-      "Had any number ever made you sad?",
-      "Yes, #11780.",
-      "#11780 is not a number, that's my hero!",
-      "They wrote 'unidentified #11780', but …",
-      "We read it as my dear, my bro …",
-      "Surely everyone had a name…",
-      "Let me be the one who knows your name!"
+    steps: [
+      { type: "text", value: "Had any number ever made you sad?" },
+      { type: "text", value: "Yes, #11780." },
+      { type: "text", value: "#11780 is not a number, that's my hero!" },
+      {
+        type: "image-with-caption",
+        image: "assets/images/s3_leak_08_img.png",
+        caption: "They wrote 'unidentified #11780', but …"
+      },
+      { type: "text", value: "We read it as my dear, my bro …" },
+      { type: "text", value: "Surely everyone had a name…" },
+      { type: "text", value: "Let me be the one who knows your name!" }
     ],
-    reactionCta: "more",
+    stepCta: "more",
     finalCta: "Call them by name"
   };
 
@@ -198,12 +202,12 @@
 
   /* ------------------------------------------------------------------
      "Name them" moment — stage 3's closing moment (s3_mom_12). Not a
-     message-moment attempt ladder: no spinner, no image — pure text.
-     Its cta chain is intro -> search -> clear -> cycle through the 7
-     reactions one at a time (word-by-word) via "more" -> finalCta ->
-     full-black beat -> onComplete. Intro and every reaction reuse the
-     same paragraph, so each swap is an instant clear (typeText resets
-     the element before retyping) with no fade.
+     message-moment attempt ladder: no spinner. Its cta chain is intro ->
+     search -> clear -> cycle through the 7 steps one at a time via
+     "more" -> finalCta -> full-black beat -> onComplete. Each step is
+     either plain text or an image+caption pair; nothing persists
+     between steps except whichever one is current — every step is an
+     instant clear (no fade) before the next one shows.
      ------------------------------------------------------------------ */
   function runNameThemMoment(containerEl, data, onComplete) {
     if (!containerEl) return;
@@ -228,28 +232,55 @@
       STS.presentCtaButton(button);
     }
 
-    function showReaction(reactionIndex) {
-      actionEl.innerHTML = ""; // instant, no fade — button gone while this reaction types in
-      var isLastReaction = reactionIndex === data.reactions.length - 1;
-      STS.typeText(textEl, data.reactions[reactionIndex], 14, function () {
-        if (isLastReaction) {
+    // Removes whatever image the previous step may have shown — nothing
+    // persists between steps except the current one.
+    function clearPreviousImage() {
+      var existing = containerEl.querySelector(".name-them-moment__image-wrap");
+      if (existing) existing.remove();
+    }
+
+    function showStep(stepIndex) {
+      actionEl.innerHTML = ""; // instant, no fade — button gone while this step shows in
+      clearPreviousImage();
+
+      var step = data.steps[stepIndex];
+      var isLastStep = stepIndex === data.steps.length - 1;
+
+      function onStepShown() {
+        if (isLastStep) {
           showButton(data.finalCta, finish);
         } else {
-          showButton(data.reactionCta, function () {
-            showReaction(reactionIndex + 1);
+          showButton(data.stepCta, function () {
+            showStep(stepIndex + 1);
           });
         }
-      });
+      }
+
+      if (step.type === "image-with-caption") {
+        var imageWrapEl = document.createElement("div");
+        imageWrapEl.className = "name-them-moment__image-wrap";
+
+        var imgEl = document.createElement("img");
+        imgEl.className = "message-moment__response-image";
+        imgEl.src = step.image;
+        imgEl.alt = "";
+        imageWrapEl.appendChild(imgEl);
+
+        containerEl.insertBefore(imageWrapEl, textEl);
+        STS.typeText(textEl, step.caption, 14, onStepShown);
+      } else {
+        STS.typeText(textEl, step.value, 14, onStepShown);
+      }
     }
 
     function finish() {
-      containerEl.innerHTML = ""; // instant, no fade — text, button all gone
+      containerEl.innerHTML = ""; // instant, no fade — everything gone
       STS.coverViewportInBlack(1000, onComplete);
     }
 
     STS.typeText(textEl, data.intro.text, 14, function () {
       showButton(data.intro.cta, function () {
-        showReaction(0);
+        showStep(0);
       });
     });
   }

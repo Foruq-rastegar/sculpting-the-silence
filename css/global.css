@@ -386,6 +386,16 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* Wraps the "name them" moment's image+caption step (s3_mom_12).
+   Shifted up slightly from center to leave room for the caption
+   directly below it. */
+.name-them-moment__image-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateY(-20px);
+}
+
 /* Full-viewport blackout overlay, created/removed on demand by the
    coverViewportInBlack() helper. Sits above everything (background
    layer + frame), regardless of which stage is active. */
