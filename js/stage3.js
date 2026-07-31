@@ -235,21 +235,15 @@
     function showReaction(reactionIndex) {
       actionEl.innerHTML = ""; // instant, no fade — button gone while this reaction types in
       var isLastReaction = reactionIndex === data.reactions.length - 1;
-      STS.typeText(
-        textEl,
-        data.reactions[reactionIndex],
-        14,
-        function () {
-          if (isLastReaction) {
-            showButton(data.finalCta, finish);
-          } else {
-            showButton(data.reactionCta, function () {
-              showReaction(reactionIndex + 1);
-            });
-          }
-        },
-        "word"
-      );
+      STS.typeText(textEl, data.reactions[reactionIndex], 14, function () {
+        if (isLastReaction) {
+          showButton(data.finalCta, finish);
+        } else {
+          showButton(data.reactionCta, function () {
+            showReaction(reactionIndex + 1);
+          });
+        }
+      });
     }
 
     function finish() {
@@ -257,17 +251,11 @@
       STS.coverViewportInBlack(1000, onComplete);
     }
 
-    STS.typeText(
-      textEl,
-      data.intro.text,
-      14,
-      function () {
-        showButton(data.intro.cta, function () {
-          showReaction(0);
-        });
-      },
-      "word"
-    );
+    STS.typeText(textEl, data.intro.text, 14, function () {
+      showButton(data.intro.cta, function () {
+        showReaction(0);
+      });
+    });
   }
 
   // Background gunshot loop: starts at s3_mom_05 ("Mom", the very

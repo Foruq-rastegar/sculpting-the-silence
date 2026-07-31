@@ -82,27 +82,15 @@
       STS.presentCtaButton(button);
     }
 
-    STS.typeText(
-      nameEl,
-      data.name,
-      STAGE_4_CHARS_PER_SECOND,
-      function () {
-        if (ageEl) {
-          STS.typeText(
-            ageEl,
-            data.age,
-            STAGE_4_CHARS_PER_SECOND,
-            function () {
-              STS.typeText(subtextEl, data.subtext, STAGE_4_CHARS_PER_SECOND, showButton, "word");
-            },
-            "word"
-          );
-        } else {
-          STS.typeText(subtextEl, data.subtext, STAGE_4_CHARS_PER_SECOND, showButton, "word");
-        }
-      },
-      "word"
-    );
+    STS.typeText(nameEl, data.name, STAGE_4_CHARS_PER_SECOND, function () {
+      if (ageEl) {
+        STS.typeText(ageEl, data.age, STAGE_4_CHARS_PER_SECOND, function () {
+          STS.typeText(subtextEl, data.subtext, STAGE_4_CHARS_PER_SECOND, showButton);
+        });
+      } else {
+        STS.typeText(subtextEl, data.subtext, STAGE_4_CHARS_PER_SECOND, showButton);
+      }
+    });
   }
 
   function runNameMomentQueue(containerEl, queue, onQueueComplete) {
@@ -260,23 +248,16 @@
       });
     }
 
-    STS.typeText(
-      titleEl,
-      "11780",
-      STAGE_4_CHARS_PER_SECOND,
-      function () {
-        STS.typeText(
-          subtextEl,
-          "Their body, perhaps, was never identified by their family. But there might still be a human to call them by a name, to recall them by a memory…",
-          STAGE_4_CHARS_PER_SECOND,
-          function () {
-            setTimeout(showForm, 400);
-          },
-          "word"
-        );
-      },
-      "word"
-    );
+    STS.typeText(titleEl, "11780", STAGE_4_CHARS_PER_SECOND, function () {
+      STS.typeText(
+        subtextEl,
+        "Their body, perhaps, was never identified by their family. But there might still be a human to call them by a name, to recall them by a memory…",
+        STAGE_4_CHARS_PER_SECOND,
+        function () {
+          setTimeout(showForm, 400);
+        }
+      );
+    });
   }
 
   var COLLECTIVE_BOARD_NAME_SATURATION = 70; // %
@@ -420,7 +401,7 @@
 
     if (footerEl) {
       footerEl.textContent = "";
-      STS.typeText(footerEl, CLOSING_STATEMENT_TEXT, 14, null, "word");
+      STS.typeText(footerEl, CLOSING_STATEMENT_TEXT, 14);
     }
 
     namesMountEl.innerHTML = "";

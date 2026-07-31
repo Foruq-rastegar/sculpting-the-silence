@@ -183,7 +183,7 @@
         run: function (advance) {
           var typingDurationMs = (CUTOFF_TEXT.length / CUTOFF_CHARS_PER_SECOND) * 1000;
 
-          STS.typeText(cutoffTextEl, CUTOFF_TEXT, CUTOFF_CHARS_PER_SECOND, null, "word");
+          STS.typeText(cutoffTextEl, CUTOFF_TEXT, CUTOFF_CHARS_PER_SECOND);
           playEscalatingCounter(counterNumberEl, counterCaptionEl, typingDurationMs);
 
           setTimeout(advance, typingDurationMs + COUNTER_HOLD_MS);
@@ -210,7 +210,7 @@
         // 2.4 — gunfire warning text (s2_mom_04).
         el: document.getElementById("stage-2-moment-gunfire"),
         run: function (advance) {
-          STS.typeText(gunfireTextEl, "They are shooting by shotguns ...", 14, null, "word");
+          STS.typeText(gunfireTextEl, "They are shooting by shotguns ...", 14);
 
           if (!gunshotAudioEl) {
             advance();

@@ -143,37 +143,10 @@
 
   /* ------------------------------------------------------------------
      Typing effect — reusable by any stage that needs typed-in text.
-     mode: "char" (default) reveals one character at a time, at
-     charsPerSecond. "word" reveals one whole word at a time instead —
-     used everywhere except the "msg" chat-style message line at the top
-     of a stage-3 message-moment, which always stays "char". Word mode's
-     total duration is derived from the same charsPerSecond value (text
-     length / charsPerSecond), split evenly across the words, so a given
-     charsPerSecond reads as roughly the same pace in either mode.
+     Reveals one character at a time, at charsPerSecond.
      ------------------------------------------------------------------ */
-  function typeText(element, text, charsPerSecond, onComplete, mode) {
+  function typeText(element, text, charsPerSecond, onComplete) {
     if (!element) return function () {};
-
-    if (mode === "word") {
-      var words = text.split(" ");
-      var totalDurationMs = (text.length / (charsPerSecond || 30)) * 1000;
-      var wordIntervalMs = totalDurationMs / words.length;
-      var w = 0;
-      element.textContent = "";
-
-      var wordTimer = setInterval(function () {
-        w += 1;
-        element.textContent = words.slice(0, w).join(" ");
-        if (w >= words.length) {
-          clearInterval(wordTimer);
-          if (onComplete) onComplete();
-        }
-      }, wordIntervalMs);
-
-      return function stopTyping() {
-        clearInterval(wordTimer);
-      };
-    }
 
     var intervalMs = 1000 / (charsPerSecond || 30);
     var i = 0;
@@ -331,7 +304,7 @@
         var captionEl = document.createElement("p");
         captionEl.className = "frame__body message-moment__response-text";
         mountEl.appendChild(captionEl);
-        typeText(captionEl, caption, 14, null, "word");
+        typeText(captionEl, caption, 14);
       }
 
       setTimeout(onDone, durationMs);
@@ -370,7 +343,7 @@
       var chainTextEl = document.createElement("p");
       chainTextEl.className = "frame__body message-moment__response-text";
       actionEl.appendChild(chainTextEl);
-      typeText(chainTextEl, item.value, 14, null, "word");
+      typeText(chainTextEl, item.value, 14);
       setTimeout(advanceChain, item.displayMs || 3500);
     }
 
@@ -384,7 +357,7 @@
       var subtitleText = document.createElement("p");
       subtitleText.className = "frame__body message-moment__response-text";
       wrapperEl.appendChild(subtitleText);
-      if (response.subtitle) typeText(subtitleText, response.subtitle, 14, null, "word");
+      if (response.subtitle) typeText(subtitleText, response.subtitle, 14);
 
       var waveformEl = document.createElement("div");
       waveformEl.className = "waveform-indicator message-moment__waveform";
@@ -455,7 +428,7 @@
       var responseText = document.createElement("p");
       responseText.className = "frame__body message-moment__response-text";
       actionEl.appendChild(responseText);
-      typeText(responseText, response.value, 14, null, "word");
+      typeText(responseText, response.value, 14);
 
       if (isFinalAttempt) {
         setTimeout(finishMoment, 3500);
