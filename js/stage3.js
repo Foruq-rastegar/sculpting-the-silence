@@ -11,7 +11,7 @@
   var STS = window.STS;
 
   var MOM_MESSAGE_DATA = {
-    message: "Mom",
+    message: "Mom?",
     attempts: [
       {
         cta: "Connect",
@@ -23,13 +23,13 @@
         cta: "Try again",
         loadSpins: 3,
         response: { type: "text", value: "No response" },
-        nextMessage: { text: "Hon??" }
+        nextMessage: { text: "Give me an update please!!" }
       },
       {
         cta: "Try again",
         loadSpins: 2,
         response: { type: "text", value: "No response" },
-        nextMessage: { text: "Give me an update please" }
+        nextMessage: { text: "Momm??" }
       },
       { cta: "Please try again", loadSpins: 1, response: { type: "image", value: "assets/images/s3_leak_01_img.png" } }
     ]
