@@ -218,11 +218,15 @@ body {
   border-radius: var(--frame-radius);
 }
 
+/* Reserved for the tallest expected wrap (~4 lines at max-width: 35ch) so
+   the counter widget below never shifts, whether mid-type or between
+   texts of different lengths — ported from the approved prototype. */
 .stage-2__moment--cutoff .frame__body {
   margin-bottom: 20px;
+  min-height: calc(var(--font-size-body) * var(--line-height-body) * 4);
 }
 
-/* Full-viewport black beat between moments 2.2 and 2.3. A direct child of
+/* Full-viewport black beat between moments 2.2 and 2.4. A direct child of
    #stage-2 (not nested in .frame) so its inset:0 sizes to the whole fixed
    .stage box, covering the background layer and the frame alike; z-index
    puts it above both. */
@@ -232,15 +236,31 @@ body {
   padding: 0;
 }
 
-.stage-2__chart-mount {
-  width: 100%;
+/* Escalating hours-then-days counter (moment 2.2) — ported from the
+   approved prototypes/netblocks-chart.html, replacing the old NetBlocks
+   line chart entirely. */
+.counter-widget {
+  margin-top: 20px;
 }
 
-.stage-2__chart-mount svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 0;
+/* Line 1 — just the number. Same size/weight token as .frame__title,
+   bumped 4px and recolored red for emphasis. */
+.counter-number {
+  font-size: calc(var(--font-size-title) + 4px);
+  font-weight: var(--font-weight-title);
+  line-height: 1;
+  color: #e53935;
+  margin: 0;
+}
+
+/* Line 2 — unit word + description merged into one phrase (e.g. "day of
+   digital blackout in Iran"). */
+.counter-caption {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-fg);
+  opacity: 0.6;
+  margin: 6px 0 0;
 }
 
 /* Audio-waveform indicator: a row of thin bars whose height animates in a
