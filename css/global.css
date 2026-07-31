@@ -258,9 +258,17 @@ body {
 .counter-caption {
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-body);
-  color: var(--color-fg);
-  opacity: 0.6;
+  /* Muted via a translucent color rather than the opacity property —
+     opacity applies to the whole subtree's compositing, which would
+     have dulled .counter-caption__unit's red below regardless of its
+     own color value. */
+  color: rgba(255, 255, 255, 0.6);
   margin: 6px 0 0;
+}
+
+/* "hour"/"day" within the caption — same red as .counter-number. */
+.counter-caption__unit {
+  color: #e53935;
 }
 
 /* Audio-waveform indicator: a row of thin bars whose height animates in a

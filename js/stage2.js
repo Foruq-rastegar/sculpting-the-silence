@@ -89,7 +89,14 @@
 
   function setCounter(numberEl, captionEl, numberText, unit) {
     numberEl.textContent = numberText;
-    captionEl.textContent = unit ? unit + " of digital blackout in Iran" : "";
+    captionEl.innerHTML = "";
+    if (!unit) return;
+
+    var unitEl = document.createElement("span");
+    unitEl.className = "counter-caption__unit";
+    unitEl.textContent = unit;
+    captionEl.appendChild(unitEl);
+    captionEl.appendChild(document.createTextNode(" of digital blackout in Iran"));
   }
 
   // Counts 0 -> HOURS_MAX (caption unit "hour") then 1 -> DAYS_MAX
