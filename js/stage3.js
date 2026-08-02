@@ -159,16 +159,17 @@
   var NAME_THEM_MOMENT_DATA = {
     intro: { text: "#11780?????", cta: "search" },
     steps: [
-      { type: "image", image: "assets/images/s3_diaspora_react_01_img.png" },
+      { type: "text", value: "Had any number ever made you sad?" },
       { type: "text", value: "Yes, #11780." },
-      { type: "image", image: "assets/images/s3_diaspora_react_03_img.png" },
+      { type: "text", value: "#11780 is not a number, that's my hero!" },
       {
         type: "image-with-caption",
         image: "assets/images/s3_leak_08_img.png",
         caption: "They wrote 'unidentified #11780', but …"
       },
-      { type: "image", image: "assets/images/s3_diaspora_react_05_img.png" },
-      { type: "text", value: "Surely everyone had a name! Let me …" }
+      { type: "text", value: "We read it as my dear, my bro …" },
+      { type: "text", value: "Surely everyone had a name…" },
+      { type: "text", value: "Let me be the one who knows your name!" }
     ],
     stepCta: "more",
     finalCta: "Call them by name"
@@ -199,17 +200,12 @@
     playNext();
   }
 
-  // How long a plain "image" step (no caption, so nothing else gates
-  // advancement) stays up before the next cta appears — matches the
-  // 3500ms default used for other stage-3 leak images.
-  var NAME_THEM_IMAGE_STEP_DISPLAY_MS = 3500;
-
   /* ------------------------------------------------------------------
      "Name them" moment — stage 3's closing moment (s3_mom_12). Not a
      message-moment attempt ladder: no spinner. Its cta chain is intro ->
-     search -> clear -> cycle through the steps one at a time via "more"
-     -> finalCta -> full-black beat -> onComplete. Each step is plain
-     text, a plain image, or an image+caption pair; nothing persists
+     search -> clear -> cycle through the 7 steps one at a time via
+     "more" -> finalCta -> full-black beat -> onComplete. Each step is
+     either plain text or an image+caption pair; nothing persists
      between steps except whichever one is current — every step is an
      instant clear (no fade) before the next one shows.
      ------------------------------------------------------------------ */
@@ -236,11 +232,10 @@
       STS.presentCtaButton(button);
     }
 
-    // Removes whatever image the previous step may have shown (plain or
-    // with a caption) — nothing persists between steps except the
-    // current one.
+    // Removes whatever image the previous step may have shown — nothing
+    // persists between steps except the current one.
     function clearPreviousImage() {
-      var existing = containerEl.querySelector(".name-them-moment__image-wrap, .name-them-moment__image");
+      var existing = containerEl.querySelector(".name-them-moment__image-wrap");
       if (existing) existing.remove();
     }
 
@@ -273,18 +268,6 @@
 
         containerEl.insertBefore(imageWrapEl, textEl);
         STS.typeText(textEl, step.caption, 14, onStepShown);
-      } else if (step.type === "image") {
-        // No caption, so nothing types — the image just fits the frame
-        // (same sizing as other stage-3 leak images) for a fixed beat.
-        textEl.textContent = "";
-
-        var plainImgEl = document.createElement("img");
-        plainImgEl.className = "message-moment__response-image name-them-moment__image";
-        plainImgEl.src = step.image;
-        plainImgEl.alt = "";
-        containerEl.insertBefore(plainImgEl, textEl);
-
-        setTimeout(onStepShown, NAME_THEM_IMAGE_STEP_DISPLAY_MS);
       } else {
         STS.typeText(textEl, step.value, 14, onStepShown);
       }
