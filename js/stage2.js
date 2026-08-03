@@ -68,79 +68,101 @@
      Stage 2 — automatic sequence: social feeds video, connectivity
      blackout graphic, gunfire warning. No buttons, all auto-timed.
      ------------------------------------------------------------------ */
-  var CUTOFF_TEXT = "As the protests peaked, the government completely blacked out all communication channels in Iran.";
+  var CUTOFF_TEXT = "As the protests peaked, the government completely blacked out all communication channels in Iran for";
   var CUTOFF_CHARS_PER_SECOND = 14;
 
-  // Escalating hours-then-days counter (moment 2.2) — ported verbatim
-  // from the approved prototypes/netblocks-chart.html, replacing the old
-  // NetBlocks line chart entirely.
-  var HOURS_MAX = 23;
-  var HOUR_TICKS = HOURS_MAX + 1; // firings to display 1..23, then one more to detect >23 and switch
+  // Escalating minutes-then-hours-then-days counter (moment 2.2) —
+  // continues the cutoff text's trailing "for" (e.g. "...for 18+ Days").
+  var MINUTES_MAX = 60;
+  var MINUTE_TICKS = MINUTES_MAX - 1; // firings to walk from "1" up to "60"
+
+  var HOURS_MAX = 24;
+  var HOUR_TICKS = HOURS_MAX - 1; // firings to walk from "1" up to "24"
 
   var DAYS_MAX = 18;
   var DAY_TICKS = DAYS_MAX - 1; // firings to walk from the immediate "1" up to the final "18"
 
-  // Share of the total duration spent in the (faster) hour sprint before
-  // handing off to the (slower) day count — tune to taste.
-  var HOUR_PHASE_DURATION_SHARE = 0.45;
+  // Shares of the total duration spent in the minute sprint and the hour
+  // sprint before handing off to the (slowest) day count, which gets
+  // whatever share remains — tune to taste.
+  var MINUTE_PHASE_DURATION_SHARE = 0.3;
+  var HOUR_PHASE_DURATION_SHARE = 0.3;
 
   // A brief hold on the final "18+" state before the moment advances.
   var COUNTER_HOLD_MS = 500;
 
-  function setCounter(numberEl, captionEl, numberText, unit) {
+  function setCounter(numberEl, captionEl, numberText, unitLabel) {
     numberEl.textContent = numberText;
     captionEl.innerHTML = "";
-    if (!unit) return;
+    if (!unitLabel) return;
 
     var unitEl = document.createElement("span");
     unitEl.className = "counter-caption__unit";
-    unitEl.textContent = unit;
+    unitEl.textContent = unitLabel;
     captionEl.appendChild(unitEl);
-    captionEl.appendChild(document.createTextNode(" of digital blackout in Iran"));
   }
 
-  // Counts 0 -> HOURS_MAX (caption unit "hour") then 1 -> DAYS_MAX
-  // (caption unit "day"), timed to finish at totalDurationMs from now
-  // (hour phase gets HOUR_PHASE_DURATION_SHARE of it, day phase gets the
-  // rest). The final value is shown as "18+" (trailing plus), not plain
-  // "18". Returns a stop function so a replay can cancel an in-flight run.
+  // Counts 1 -> MINUTES_MAX ("Minutes"), then 1 -> HOURS_MAX ("Hours"),
+  // then 1 -> DAYS_MAX ("Days"), timed to finish at totalDurationMs from
+  // now. The final value is shown as "18+" (trailing plus), not plain
+  // "18", and held there. Returns a stop function so a replay can cancel
+  // an in-flight run.
   function playEscalatingCounter(numberEl, captionEl, totalDurationMs) {
+    var minuteStepMs = (totalDurationMs * MINUTE_PHASE_DURATION_SHARE) / MINUTE_TICKS;
     var hourStepMs = (totalDurationMs * HOUR_PHASE_DURATION_SHARE) / HOUR_TICKS;
-    var dayStepMs = (totalDurationMs * (1 - HOUR_PHASE_DURATION_SHARE)) / DAY_TICKS;
+    var dayStepMs = (totalDurationMs * (1 - MINUTE_PHASE_DURATION_SHARE - HOUR_PHASE_DURATION_SHARE)) / DAY_TICKS;
 
+    var minuteTimer = null;
     var hourTimer = null;
     var dayTimer = null;
 
     function stop() {
+      if (minuteTimer) clearInterval(minuteTimer);
       if (hourTimer) clearInterval(hourTimer);
       if (dayTimer) clearInterval(dayTimer);
     }
 
     function startDaysPhase() {
       var day = 1;
-      setCounter(numberEl, captionEl, String(day), "day");
+      setCounter(numberEl, captionEl, String(day), "Days");
       dayTimer = setInterval(function () {
         day += 1;
         if (day >= DAYS_MAX) {
           clearInterval(dayTimer);
-          setCounter(numberEl, captionEl, DAYS_MAX + "+", "day");
+          setCounter(numberEl, captionEl, DAYS_MAX + "+", "Days");
           return;
         }
-        setCounter(numberEl, captionEl, String(day), "day");
+        setCounter(numberEl, captionEl, String(day), "Days");
       }, dayStepMs);
     }
 
-    var hour = 0;
-    setCounter(numberEl, captionEl, String(hour), "hour");
-    hourTimer = setInterval(function () {
-      hour += 1;
-      if (hour > HOURS_MAX) {
-        clearInterval(hourTimer);
-        startDaysPhase();
+    function startHoursPhase() {
+      var hour = 1;
+      setCounter(numberEl, captionEl, String(hour), "Hours");
+      hourTimer = setInterval(function () {
+        hour += 1;
+        if (hour >= HOURS_MAX) {
+          clearInterval(hourTimer);
+          setCounter(numberEl, captionEl, String(HOURS_MAX), "Hours");
+          startDaysPhase();
+          return;
+        }
+        setCounter(numberEl, captionEl, String(hour), "Hours");
+      }, hourStepMs);
+    }
+
+    var minute = 1;
+    setCounter(numberEl, captionEl, String(minute), "Minutes");
+    minuteTimer = setInterval(function () {
+      minute += 1;
+      if (minute >= MINUTES_MAX) {
+        clearInterval(minuteTimer);
+        setCounter(numberEl, captionEl, String(MINUTES_MAX), "Minutes");
+        startHoursPhase();
         return;
       }
-      setCounter(numberEl, captionEl, String(hour), "hour");
-    }, hourStepMs);
+      setCounter(numberEl, captionEl, String(minute), "Minutes");
+    }, minuteStepMs);
 
     return stop;
   }
@@ -198,10 +220,10 @@
         }
       },
       {
-        // 2.2 — digital cutoff text + escalating hours-then-days counter.
-        // Both start together: the counter's total duration is derived
-        // from the typing duration so they land at roughly the same
-        // moment (see prototypes/netblocks-chart.html).
+        // 2.2 — digital cutoff text (s2_mom_03) + escalating minutes-then-
+        // hours-then-days counter that completes its trailing "for". Both
+        // start together: the counter's total duration is derived from the
+        // typing duration so they land at roughly the same moment.
         el: document.getElementById("stage-2-moment-cutoff"),
         run: function (advance) {
           var typingDurationMs = (CUTOFF_TEXT.length / CUTOFF_CHARS_PER_SECOND) * 1000;

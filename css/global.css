@@ -236,9 +236,8 @@ body {
   padding: 0;
 }
 
-/* Escalating hours-then-days counter (moment 2.2) — ported from the
-   approved prototypes/netblocks-chart.html, replacing the old NetBlocks
-   line chart entirely. */
+/* Escalating minutes-then-hours-then-days counter (moment 2.2, s2_mom_03)
+   — continues the cutoff text's trailing "for" (e.g. "...for 18+ Days"). */
 .counter-widget {
   margin-top: 20px;
 }
@@ -253,8 +252,7 @@ body {
   margin: 0;
 }
 
-/* Line 2 — unit word + description merged into one phrase (e.g. "day of
-   digital blackout in Iran"). */
+/* Line 2 — the current phase's unit label ("Minutes"/"Hours"/"Days"). */
 .counter-caption {
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-body);
@@ -266,7 +264,7 @@ body {
   margin: 6px 0 0;
 }
 
-/* "hour"/"day" within the caption — same red as .counter-number. */
+/* "Minutes"/"Hours"/"Days" within the caption — same red as .counter-number. */
 .counter-caption__unit {
   color: #e53935;
 }
