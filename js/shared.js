@@ -268,6 +268,34 @@
       textEl.textContent = "";
     }
 
+    // EXPERIMENT — zoom-to-fill + fade-to-black: every stage-3 leak image
+    // and video (standalone or within a chain) EXCEPT s3_leak_08_img
+    // (rendered separately by runNameThemMoment's own image+caption
+    // layout, never through here). Over the leak's full display duration
+    // it slowly zooms from its normal framing up to LEAK_ZOOM_FILL_SCALE
+    // — enough to fill and slightly overflow the frame (.frame has
+    // overflow: visible) — and during the final LEAK_FADE_SHARE of that
+    // same timeline, fades to black in step with it, so it dissolves into
+    // darkness right as it finishes filling the frame instead of cutting
+    // away abruptly.
+    var LEAK_ZOOM_FILL_SCALE = 1.4;
+    var LEAK_FADE_SHARE = 0.3;
+
+    function applyLeakZoomAndFade(el, durationMs) {
+      var fadeDurationMs = durationMs * LEAK_FADE_SHARE;
+      var fadeDelayMs = durationMs - fadeDurationMs;
+
+      el.style.filter = "brightness(1)";
+      el.style.transition =
+        "transform " + durationMs + "ms linear, " +
+        "filter " + fadeDurationMs + "ms linear " + fadeDelayMs + "ms";
+      el.getBoundingClientRect(); // force reflow before enabling the transition
+      requestAnimationFrame(function () {
+        el.style.transform = "scale(" + LEAK_ZOOM_FILL_SCALE + ")";
+        el.style.filter = "brightness(0)";
+      });
+    }
+
     // Same pattern as stage 2's social-feeds video: autoplay/inline with
     // sound, no controls, advances on the native 'ended' event. Playing
     // with audio is safe here since stage 1 already required a user
@@ -286,6 +314,14 @@
         onEnded();
       };
       video.addEventListener("ended", handleEnded);
+
+      // The zoom+fade timeline is tied to the clip's own length, known
+      // only once its metadata has loaded.
+      video.addEventListener("loadedmetadata", function onLoadedMetadata() {
+        video.removeEventListener("loadedmetadata", onLoadedMetadata);
+        applyLeakZoomAndFade(video, video.duration * 1000);
+      });
+
       video.load();
       var playPromise = video.play();
       if (playPromise && playPromise.catch) {
@@ -293,11 +329,10 @@
       }
     }
 
-    // Every stage-3 leak image (standalone or within a chain): a slow,
-    // gentle zoom-in over the image's full display duration, so it's
-    // subtly still growing right up until it's cleared from the screen.
-    // An optional caption types in below it, fire-and-forget (doesn't
-    // gate onDone/durationMs).
+    // Every stage-3 leak image (standalone or within a chain): the
+    // zoom-to-fill + fade-to-black treatment above, timed to the image's
+    // full display duration. An optional caption types in below it,
+    // fire-and-forget (doesn't gate onDone/durationMs).
     function renderZoomingLeakImage(mountEl, src, durationMs, onDone, caption) {
       var img = document.createElement("img");
       img.className = "message-moment__response-image";
@@ -305,11 +340,7 @@
       img.alt = "";
       mountEl.appendChild(img);
 
-      img.style.transition = "transform " + durationMs + "ms linear";
-      img.getBoundingClientRect(); // force reflow before enabling the transition
-      requestAnimationFrame(function () {
-        img.style.transform = "scale(1.08)";
-      });
+      applyLeakZoomAndFade(img, durationMs);
 
       if (caption) {
         var captionEl = document.createElement("p");
