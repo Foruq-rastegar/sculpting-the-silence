@@ -91,6 +91,11 @@
   // A brief hold on the final "18+" state before the moment advances.
   var COUNTER_HOLD_MS = 500;
 
+  // Extra hold on the whole frame (text + counter, as-is) once the typing
+  // and counter animations finish, giving the audience time to read it
+  // before advancing to the next beat.
+  var CUTOFF_POST_HOLD_MS = 2000;
+
   function setCounter(numberEl, captionEl, numberText, unitLabel) {
     numberEl.textContent = numberText;
     captionEl.innerHTML = "";
@@ -231,7 +236,7 @@
           STS.typeText(cutoffTextEl, CUTOFF_TEXT, CUTOFF_CHARS_PER_SECOND);
           playEscalatingCounter(counterNumberEl, counterCaptionEl, typingDurationMs);
 
-          setTimeout(advance, typingDurationMs + COUNTER_HOLD_MS);
+          setTimeout(advance, typingDurationMs + COUNTER_HOLD_MS + CUTOFF_POST_HOLD_MS);
         }
       }
     ];
