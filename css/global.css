@@ -90,7 +90,7 @@ html[data-screen-mode="field"] .frame {
 
 /* Same mechanism, driven by the on-screen frame toggle button instead of
    the URL param — see shared.js's setupDevScreenToggleButtons(). */
-html[data-frame-hidden="true"] .frame {
+html.frame-hidden .frame {
   display: none;
 }
 

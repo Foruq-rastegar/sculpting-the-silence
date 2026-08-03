@@ -30,12 +30,12 @@
      On-screen frame/field toggle buttons — dev/testing only, same
      purpose as ?screen= above but live-toggleable in either window
      without editing the URL (the URL param still sets the initial
-     state). The frame button drives a data-frame-hidden attribute that
-     mirrors ?screen=field's own html[data-screen-mode="field"] .frame
-     CSS rule (see global.css); the field button calls Field.setVisible()
-     directly, same as ?screen=frame does from within field.js's init().
-     Local-only, like Field.setVisible itself — never broadcast to the
-     other window.
+     state). The frame button drives a "frame-hidden" class on <html>
+     (see global.css) via classList.toggle, so each click cleanly adds
+     or removes it rather than juggling an attribute value; the field
+     button calls Field.setVisible() directly, same as ?screen=frame
+     does from within field.js's init(). Local-only, like
+     Field.setVisible itself — never broadcast to the other window.
      ------------------------------------------------------------------ */
   (function setupDevScreenToggleButtons() {
     var frameBtn = document.getElementById("dev-toggle-frame-btn");
@@ -49,7 +49,7 @@
 
     frameBtn.addEventListener("click", function () {
       frameVisible = !frameVisible;
-      document.documentElement.setAttribute("data-frame-hidden", frameVisible ? "false" : "true");
+      document.documentElement.classList.toggle("frame-hidden", !frameVisible);
       frameBtn.classList.toggle("is-off", !frameVisible);
     });
 
