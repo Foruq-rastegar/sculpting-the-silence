@@ -13,6 +13,15 @@
        via window.Field; each stage wires up its own timing. -->
   <canvas id="field-canvas" class="field-canvas"></canvas>
 
+  <!-- Dev/testing only: on-screen buttons that toggle frame/field
+       visibility live, independent of the ?screen= URL param (which can
+       still be used to set the initial state). See shared.js's
+       setupDevScreenToggleButtons(). -->
+  <div class="dev-screen-toggles" id="dev-screen-toggles">
+    <button type="button" class="dev-screen-toggles__btn" id="dev-toggle-frame-btn">Frame</button>
+    <button type="button" class="dev-screen-toggles__btn" id="dev-toggle-field-btn">Field</button>
+  </div>
+
   <!-- Stage 1: Content Warning -->
   <section id="stage-1" class="stage stage-1 is-active" data-stage="1">
     <div class="background-layer" style="background-image: url('assets/images/s1_banner_sensitive_content_img.png');"></div>

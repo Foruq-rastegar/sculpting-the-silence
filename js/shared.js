@@ -27,6 +27,40 @@
   STS.screenMode = screenMode;
 
   /* ------------------------------------------------------------------
+     On-screen frame/field toggle buttons — dev/testing only, same
+     purpose as ?screen= above but live-toggleable in either window
+     without editing the URL (the URL param still sets the initial
+     state). The frame button drives a data-frame-hidden attribute that
+     mirrors ?screen=field's own html[data-screen-mode="field"] .frame
+     CSS rule (see global.css); the field button calls Field.setVisible()
+     directly, same as ?screen=frame does from within field.js's init().
+     Local-only, like Field.setVisible itself — never broadcast to the
+     other window.
+     ------------------------------------------------------------------ */
+  (function setupDevScreenToggleButtons() {
+    var frameBtn = document.getElementById("dev-toggle-frame-btn");
+    var fieldBtn = document.getElementById("dev-toggle-field-btn");
+    if (!frameBtn || !fieldBtn) return;
+
+    var frameVisible = screenMode !== "field";
+    var fieldVisible = screenMode !== "frame";
+    frameBtn.classList.toggle("is-off", !frameVisible);
+    fieldBtn.classList.toggle("is-off", !fieldVisible);
+
+    frameBtn.addEventListener("click", function () {
+      frameVisible = !frameVisible;
+      document.documentElement.setAttribute("data-frame-hidden", frameVisible ? "false" : "true");
+      frameBtn.classList.toggle("is-off", !frameVisible);
+    });
+
+    fieldBtn.addEventListener("click", function () {
+      fieldVisible = !fieldVisible;
+      if (window.Field) window.Field.setVisible(fieldVisible);
+      fieldBtn.classList.toggle("is-off", !fieldVisible);
+    });
+  })();
+
+  /* ------------------------------------------------------------------
      Cross-window sync (BroadcastChannel) — dev/testing only. When the
      frame and field are opened as two separate windows/monitors, this
      keeps them showing the same stage and field motion state instead of

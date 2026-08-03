@@ -88,6 +88,49 @@ html[data-screen-mode="field"] .frame {
   display: none;
 }
 
+/* Same mechanism, driven by the on-screen frame toggle button instead of
+   the URL param — see shared.js's setupDevScreenToggleButtons(). */
+html[data-frame-hidden="true"] .frame {
+  display: none;
+}
+
+/* Dev/testing only — small, low-opacity buttons that toggle frame/field
+   visibility live in either window, without editing the URL. Positioned
+   unobtrusively in a corner so they don't interfere with the actual
+   experience; sits above even the full-viewport blackout overlay so it
+   always stays reachable. */
+.dev-screen-toggles {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 1000;
+  display: flex;
+  gap: 4px;
+}
+
+.dev-screen-toggles__btn {
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.6);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+
+.dev-screen-toggles__btn:hover,
+.dev-screen-toggles__btn:focus-visible {
+  opacity: 1;
+}
+
+.dev-screen-toggles__btn.is-off {
+  text-decoration: line-through;
+}
+
 /* Centered content frame, fixed design width that shrinks on narrow
    viewports. Sits above the background layer. Plain by default — the
    frosted-card look (blur/tint/grain) is opt-in via .frame--intro. */
