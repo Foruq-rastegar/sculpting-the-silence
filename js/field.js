@@ -307,6 +307,50 @@
     renderFrame(lastRenderedNowSec);
   }
 
+  // .stage uses position:fixed, which always forms its own stacking context
+  // in every modern browser regardless of z-index — so as a sibling living
+  // outside every .stage, this canvas can only ever paint entirely behind or
+  // entirely in front of the active stage's full contents as one atomic
+  // block; no z-index value can slot it "between" a stage's own
+  // .background-layer and its .frame. The fix is to physically move this
+  // same canvas node (preserving its bitmap/context/animation state) to be a
+  // child of whichever .stage is active, right after that stage's own
+  // .background-layer — within a single stacking context, plain DOM order
+  // then does the right thing: background-layer, then canvas, then .frame.
+  function reparentIntoActiveStage() {
+    if (!canvas) return;
+    var activeStage = document.querySelector(".stage.is-active");
+    if (!activeStage) return;
+
+    var backgroundLayer = activeStage.querySelector(".background-layer");
+    if (backgroundLayer) {
+      if (backgroundLayer.nextElementSibling !== canvas) {
+        backgroundLayer.insertAdjacentElement("afterend", canvas);
+      }
+    } else if (activeStage.firstChild !== canvas) {
+      activeStage.insertBefore(canvas, activeStage.firstChild);
+    }
+  }
+
+  // Stage transitions toggle "is-active" on the relevant .stage elements
+  // (see STS.goToStage in shared.js) — watching for that class change here
+  // keeps the canvas correctly placed with no changes needed to shared.js
+  // or any stage-N.js file, now or as future stages wire up their own timing.
+  function watchStageChanges() {
+    var stages = document.querySelectorAll(".stage");
+    var observer = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        if (mutations[i].attributeName === "class") {
+          reparentIntoActiveStage();
+          return;
+        }
+      }
+    });
+    stages.forEach(function (stageEl) {
+      observer.observe(stageEl, { attributes: true, attributeFilter: ["class"] });
+    });
+  }
+
   /* ------------------------------------------------------------------
      Public API
      ------------------------------------------------------------------ */
@@ -321,6 +365,9 @@
     zoomPivotY = 0;
     physicsActive = false;
     elapsedSec = 0;
+
+    reparentIntoActiveStage();
+    watchStageChanges();
 
     window.addEventListener("resize", resize);
     resize(); // sizes the canvas, generates dots, draws one static frame

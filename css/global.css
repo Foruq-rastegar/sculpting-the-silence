@@ -59,16 +59,18 @@ body {
 }
 
 /* Persistent background point field (js/field.js via window.Field) — a
-   single full-viewport canvas living outside every .stage, so it survives
-   stage transitions untouched. Deliberately has NO explicit z-index: any
-   position:fixed element (like .stage) always forms its own stacking
-   context regardless of z-index, so an auto-z-index .stage would ignore
-   DOM order and sit BEHIND a sibling with an explicit z-index no matter
-   which comes first in the document. Leaving this at z-index:auto too and
-   placing it before every .stage in index.html means plain DOM order
-   decides instead — this canvas paints first, then the active .stage
-   (background-layer + frame, stacked internally as already built) paints
-   entirely on top of it. Purely decorative — never intercepts input. */
+   single full-viewport canvas. field.js physically reparents this same
+   node (preserving its bitmap/context/animation state) to be a child of
+   whichever .stage is currently active, right after that stage's own
+   .background-layer: .stage uses position:fixed, which always forms its
+   own stacking context regardless of z-index, so as an outside sibling
+   this canvas could only ever paint entirely behind or entirely in front
+   of a stage's full contents as one atomic block — no z-index value can
+   slot it "between" .background-layer and .frame. Once nested inside the
+   active stage, plain DOM order does the right thing instead:
+   background-layer, then this canvas, then .frame on top. Deliberately
+   has NO explicit z-index — see field.js's reparentIntoActiveStage().
+   Purely decorative — never intercepts input. */
 .field-canvas {
   position: fixed;
   inset: 0;

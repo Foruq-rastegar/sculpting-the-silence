@@ -97,17 +97,19 @@ don't always run in descending order across a moment's attempts.
 
 ## Background point field
 
-`js/field.js` (`window.Field`) renders a single full-viewport `<canvas id="field-canvas">` that
-lives outside every `.stage`, so it persists untouched across stage transitions instead of being
-recreated per stage. It deliberately has **no explicit `z-index`**: `position: fixed` always
-creates its own stacking context regardless of z-index, so `.stage` (also `position: fixed`, its
-own `z-index: auto`) would ignore DOM order and sit *behind* any sibling that declares an explicit
-z-index, no matter which comes first in the document — giving the canvas a z-index (even one lower
-than `.frame`'s) would hide the entire active stage behind it. Leaving both at `z-index: auto` and
-placing the canvas before every `.stage` in `index.html` means plain DOM order decides instead:
-the canvas paints first, then the active stage (background-layer + frame, stacked internally as
-already built) paints entirely on top of it. `pointer-events: none` — purely decorative, never
-intercepts input.
+`js/field.js` (`window.Field`) renders a single full-viewport `<canvas id="field-canvas">`. Its
+JS-side state (dots, animation clock) persists continuously across stage transitions, but the DOM
+node itself is physically **reparented** on every stage change: `.stage` uses `position: fixed`,
+which in every modern browser always forms its own stacking context regardless of z-index — so as
+a sibling living outside every `.stage`, the canvas could only ever paint entirely behind or
+entirely in front of the active stage's full contents as one atomic block; no z-index value can
+slot it "between" a stage's own `.background-layer` and its `.frame`. `field.js` fixes this itself
+(no changes needed to `shared.js` or any `stage-N.js`) by watching for the `.stage.is-active` class
+change (`MutationObserver`) and moving the same canvas node to be a child of the newly active
+stage, right after its `.background-layer` — within one stacking context, plain DOM order then
+does the right thing: background-layer, then canvas, then `.frame` (moving a canvas node doesn't
+clear its drawn bitmap or reset its context). `.field-canvas` has no explicit `z-index` and
+`pointer-events: none` — purely decorative, never intercepts input.
 
 Public API: `init(canvas)` (static default state, no motion), `startIdleJitter()` (idle wobble
 only), `startFlow()` (channel-joining movement begins — no fixed duration; the caller decides how
