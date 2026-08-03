@@ -11,10 +11,10 @@
 
   // Feature flag for s2_mom_04 (the gunfire warning moment, moment 2.4 in
   // this file's numbering — the blackout beat at 2.3 only exists as its
-  // lead-in). Set to false to skip both entirely, going straight from
-  // moment 2.2 to whatever follows 2.4 (stage 3), without deleting either
-  // moment's code.
-  var ENABLE_S2_MOM_04 = true;
+  // lead-in). Set to false to skip both entirely: a brief load_anim_1
+  // spinner beat stands in for them instead, going straight from moment
+  // 2.2 to stage 3 without deleting either moment's code.
+  var ENABLE_S2_MOM_04 = false;
 
   /* ------------------------------------------------------------------
      Moment runner — plays an ordered list of moments one at a time.
@@ -238,8 +238,9 @@
 
     // 2.3 (blackout lead-in) + 2.4 (gunfire warning, s2_mom_04) — only
     // included when the flag above is on; skipping both leaves the code
-    // intact but simply never queues it, going straight from 2.2 to
-    // whatever runMoments' onComplete does (stage 3).
+    // intact but simply never queues it. While disabled, a brief
+    // load_anim_1 spinner beat stands in for them, going straight from
+    // 2.2 to whatever runMoments' onComplete does (stage 3).
     if (ENABLE_S2_MOM_04) {
       moments.push({
         // Black-screen beat between 2.2 and 2.4: covers the entire
@@ -273,6 +274,15 @@
           if (playPromise && playPromise.catch) {
             playPromise.catch(function () {});
           }
+        }
+      });
+    } else {
+      moments.push({
+        // load_anim_1 — brief transitional spinner beat standing in for
+        // the disabled s2_mom_04, before moving on to stage 3.
+        el: spinnerMomentEl,
+        run: function (advance) {
+          STS.runSpinner(spinnerMomentEl, 4, advance);
         }
       });
     }
