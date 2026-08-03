@@ -203,6 +203,26 @@
      ------------------------------------------------------------------ */
   var SPIN_DURATION_MS = 900;
 
+  // Rotates mountEl's spinner for spinCount visible rotations then calls
+  // onDone — the same spinner used by every message-moment attempt below,
+  // exposed so other stages (e.g. stage 2's transitional beats) can reuse
+  // it outside the attempt-ladder flow.
+  function runSpinner(mountEl, spinCount, onDone) {
+    mountEl.innerHTML = ""; // instant, no fade
+    var spinner = document.createElement("div");
+    spinner.className = "message-moment__spinner";
+    spinner.style.animationDuration = SPIN_DURATION_MS + "ms";
+    spinner.style.animationIterationCount = String(spinCount);
+    mountEl.appendChild(spinner);
+
+    spinner.addEventListener("animationend", function onSpinEnd() {
+      spinner.removeEventListener("animationend", onSpinEnd);
+      onDone();
+    });
+  }
+
+  STS.runSpinner = runSpinner;
+
   function runMessageMoment(containerEl, data, onComplete) {
     if (!containerEl) return;
     containerEl.innerHTML = "";
@@ -231,17 +251,8 @@
     }
 
     function runAttempt(index) {
-      actionEl.innerHTML = ""; // instant, no fade
       var attempt = data.attempts[index];
-
-      var spinner = document.createElement("div");
-      spinner.className = "message-moment__spinner";
-      spinner.style.animationDuration = SPIN_DURATION_MS + "ms";
-      spinner.style.animationIterationCount = String(attempt.loadSpins);
-      actionEl.appendChild(spinner);
-
-      spinner.addEventListener("animationend", function onSpinEnd() {
-        spinner.removeEventListener("animationend", onSpinEnd);
+      runSpinner(actionEl, attempt.loadSpins, function () {
         showResponse(index);
       });
     }

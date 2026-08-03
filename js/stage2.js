@@ -157,6 +157,7 @@
     var gunfireTextEl = document.getElementById("stage-2-gunfire-text");
     var gunshotAudioEl = document.getElementById("stage-2-gunshot-audio");
     var waveformEl = document.getElementById("stage-2-waveform");
+    var spinnerMomentEl = document.getElementById("stage-2-moment-spinner");
 
     var moments = [
       {
@@ -179,6 +180,21 @@
           if (playPromise && playPromise.catch) {
             playPromise.catch(function () {});
           }
+        }
+      },
+      {
+        // load_anim_1 — first half of the paced spinner pause between the
+        // social-feeds video and the cutoff/counter moment (s2_mom_03).
+        el: spinnerMomentEl,
+        run: function (advance) {
+          STS.runSpinner(spinnerMomentEl, 4, advance);
+        }
+      },
+      {
+        // load_anim_2 — second half of the pause, right after load_anim_1.
+        el: spinnerMomentEl,
+        run: function (advance) {
+          STS.runSpinner(spinnerMomentEl, 3, advance);
         }
       },
       {

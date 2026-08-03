@@ -28,6 +28,11 @@
         <video id="stage-2-video" class="stage-2__video" src="assets/video/s2_protest_socialmedia_feeds_vid.mp4" autoplay playsinline preload="none"></video>
       </div>
 
+      <!-- Reused for every spinner-only beat (load_anim_1/2 before the
+           cutoff moment, and the load_anim_1 stand-in for the disabled
+           s2_mom_04) — content is injected by STS.runSpinner. -->
+      <div class="moment stage-2__moment stage-2__moment--spinner" id="stage-2-moment-spinner"></div>
+
       <div class="moment stage-2__moment stage-2__moment--cutoff" id="stage-2-moment-cutoff" data-moment="2">
         <p class="frame__body" id="stage-2-cutoff-text"></p>
         <div class="counter-widget">
