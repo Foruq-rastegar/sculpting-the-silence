@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Point Field — Default Prototype</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+</head>
+<body>
+<canvas id="field"></canvas>
+<script>
+(function () {
+  "use strict";
+
+  // ---- Tunable constants -------------------------------------------------
+
+  // Perspective — size gradient from the vanishing point (top) to nearest (bottom)
+  var MIN_DOT_SIZE = 1;                 // px radius at the vanishing point (top)
+  var MAX_DOT_SIZE = 8;                 // px radius at the nearest point (bottom)
+
+  // The channel ("main street") — a single curved path dots flow along
+  var CHANNEL_CURVE_PX = 140;           // how far left the channel drifts by the bottom
+  var CHANNEL_FALLOFF = 6;              // higher = tighter channel (density falls off faster
+                                         // with horizontal distance from the curve)
+  var CHANNEL_CORE_BAND_FRAC = 0.025;   // width (as a fraction of screen width) of the flat
+                                         // "core band" straddling the curve where density stays
+                                         // at its maximum, before the falloff begins
+  var DENSITY_TOP_TO_BOTTOM_BIAS = 2.4; // higher = channel density increases more steeply
+                                         // toward the bottom (matches perspective)
+
+  // Starting populations (scaled up several times over for a much denser field, while still
+  // well within what canvas 2D can comfortably redraw every frame)
+  var CHANNEL_DOT_COUNT = 4800;         // population 1: already inside the channel
+  var SIDE_STREET_DOT_COUNT = 560;      // population 2: on-screen, outside the channel
+  var SIDE_STREET_SPREAD = 3;           // how much wider than the channel's own falloff the
+                                         // side-street scatter is (sparser, wider spread)
+  var OFFSCREEN_DOT_COUNT = 880;        // population 3: start entirely off-screen
+
+  // Timing — this is a ONE-TIME, bounded animation, not a loop
+  var DURATION_MS = 40000;              // active window (~stage 2's video length)
+  var OFFSCREEN_ENTRY_RATE = 24;        // off-screen dots entering the frame per second,
+                                         // spread across the duration (never a batch) — scaled
+                                         // up alongside OFFSCREEN_DOT_COUNT so entries still
+                                         // finish spreading across the same ~40s window
+
+  // Density-based speed — narrow range (2-3x), expressed directly in px/sec so the values
+  // here are concrete regardless of viewport height
+  var MIN_SPEED = 4;                    // px/sec, densest areas
+  var MAX_SPEED = 8;                    // px/sec, sparsest areas (2x MIN_SPEED)
+  var CONVERGE_RATE = 0.6;              // 1/sec, how fast a side-street/off-screen dot's
+                                         // offset collapses into the channel at top speed
+
+  var JITTER_AMOUNT = 1.4;              // px, idle wobble amplitude
+  var JITTER_SPEED = 1.0;               // idle wobble oscillation speed multiplier
+  var ENTRY_STAGGER_SECONDS = 1.5;      // small random stagger so dots of a kind don't all
+                                         // start moving in perfect unison
+
+  // Path wobble — a proportion of side-street/off-screen dots take a slightly winding path
+  // toward the channel instead of a dead-straight line, via a smooth noise offset applied
+  // perpendicular to their direction of travel (roughly lateral, since travel is mostly
+  // top-to-bottom)
+  var WOBBLE_PROPORTION = 0.4;          // fraction of non-channel dots that get any wobble at all
+  var WOBBLE_AMOUNT = 5;                // px, max lateral wobble offset (subtle by default)
+  var WOBBLE_FREQUENCY = 3;             // noise "waves" per full top-to-bottom journey —
+                                         // higher = more winding/frequent turns
+  // -------------------------------------------------------------------------
+
+  var canvas = document.getElementById("field");
+  var ctx = canvas.getContext("2d");
+
+  var width = 0;
+  var height = 0;
+
+  var dots = [];
+  var lastFrameTime = 0;
+  var elapsedSec = 0;
+  var durationSec = DURATION_MS / 1000;
+  var animationDone = false;
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    generateDots();
+    lastFrameTime = 0;
+    elapsedSec = 0;
+    animationDone = false;
+  }
+
+  function gaussianRandom() {
+    var u = 1 - Math.random();
+    var v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function clamp01(v) {
+    return v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+
+  // x position of the channel at depth t (0 = vanishing point/top, 1 = nearest/bottom).
+  // Squared term makes the curve start nearly vertical and lean gradually left with depth.
+  function channelXAt(t) {
+    return width / 2 - CHANNEL_CURVE_PX * (t * t);
+  }
+
+  function sizeAt(t) {
+    return MIN_DOT_SIZE + (MAX_DOT_SIZE - MIN_DOT_SIZE) * clamp01(t);
+  }
+
+  // How wide the channel's falloff is at a given depth (widens with depth, perspective).
+  function channelSigmaAt(t) {
+    return (width / CHANNEL_FALLOFF) * (0.3 + 0.7 * clamp01(t));
+  }
+
+  // Local dot density near the channel at (t, offset): 0 (sparse) .. 1 (densest). Density is
+  // flat at its maximum within a small core band straddling the curve, then falls off with
+  // gaussian falloff beyond that band, rather than peaking at a single point.
+  function densityAt(t, offset) {
+    var sigma = channelSigmaAt(t);
+    var coreHalfWidth = (width * CHANNEL_CORE_BAND_FRAC) / 2;
+    var beyondCore = Math.max(0, Math.abs(offset) - coreHalfWidth);
+    var lateral = Math.exp(-(beyondCore * beyondCore) / (2 * sigma * sigma));
+    var vertical = Math.pow(clamp01(t), DENSITY_TOP_TO_BOTTOM_BIAS);
+    return vertical * lateral;
+  }
+
+  // Forward-drift pace in px/sec: MAX_SPEED in sparse areas, easing down to MIN_SPEED as
+  // density rises.
+  function speedAt(t, offset) {
+    var density = densityAt(t, offset);
+    return MAX_SPEED - (MAX_SPEED - MIN_SPEED) * density;
+  }
+
+  // Minimal smooth 1D value noise (Perlin-style) — no external deps. Continuous and organic-
+  // looking as x increases, unlike raw per-frame randomness.
+  function noiseHashAt(n) {
+    var s = Math.sin(n * 127.1) * 43758.5453123;
+    return s - Math.floor(s);
+  }
+
+  function noise1D(x) {
+    var i = Math.floor(x);
+    var f = x - i;
+    var u = f * f * (3 - 2 * f);
+    return noiseHashAt(i) + (noiseHashAt(i + 1) - noiseHashAt(i)) * u;
+  }
+
+  // Perpendicular-to-travel wobble offset for a dot, in px. Zero for dots that weren't
+  // assigned a wobble, or for channel dots (which already ride the channel itself).
+  function wobbleAt(d) {
+    if (!d.hasWobble) return 0;
+    var n = noise1D(d.t * WOBBLE_FREQUENCY + d.noiseSeed);
+    return (n - 0.5) * 2 * WOBBLE_AMOUNT;
+  }
+
+  function randomJitterPhases() {
+    return {
+      phaseX: Math.random() * Math.PI * 2,
+      phaseY: Math.random() * Math.PI * 2,
+      freqX: 0.6 + Math.random() * 0.6,
+      freqY: 0.6 + Math.random() * 0.6
+    };
+  }
+
+  function makeDot(t, offset, isChannelDot, entryTimeSec) {
+    var phases = randomJitterPhases();
+    return {
+      t: t,
+      offset: offset,
+      isChannelDot: isChannelDot,
+      entryTimeSec: entryTimeSec,
+      hasWobble: !isChannelDot && Math.random() < WOBBLE_PROPORTION,
+      noiseSeed: Math.random() * 1000,
+      phaseX: phases.phaseX,
+      phaseY: phases.phaseY,
+      freqX: phases.freqX,
+      freqY: phases.freqY
+    };
+  }
+
+  // Population 1: already inside the channel, tightly bound to its density falloff.
+  function makeChannelDot() {
+    var t = Math.pow(Math.random(), 1 / DENSITY_TOP_TO_BOTTOM_BIAS);
+    var offset = gaussianRandom() * channelSigmaAt(t);
+    return makeDot(t, offset, true, 0);
+  }
+
+  // Population 2: on-screen, outside the channel — sparser, wider spread, no entry delay.
+  function makeSideStreetDot() {
+    var t = Math.random();
+    var offset = gaussianRandom() * channelSigmaAt(t) * SIDE_STREET_SPREAD;
+    var entryTimeSec = Math.random() * ENTRY_STAGGER_SECONDS;
+    return makeDot(t, offset, false, entryTimeSec);
+  }
+
+  // A point just outside the canvas bounds, near an edge.
+  function offscreenPoint() {
+    var margin = Math.min(width, height) * 0.25;
+    var r = Math.random();
+    var x, y;
+    if (r < 0.4) {
+      x = -Math.random() * margin;
+      y = Math.random() * height * 0.7;
+    } else if (r < 0.8) {
+      x = width + Math.random() * margin;
+      y = Math.random() * height * 0.7;
+    } else if (r < 0.9) {
+      x = Math.random() * width;
+      y = -Math.random() * margin;
+    } else {
+      x = Math.random() * width;
+      y = height + Math.random() * margin * 0.5;
+    }
+    return { x: x, y: y };
+  }
+
+  // Population 3: start entirely off-screen, entering the frame over time at a steady rate,
+  // spread across the whole duration so the edges never run dry or dump in a batch.
+  function makeOffscreenDot(index) {
+    var p = offscreenPoint();
+    var t = clamp01(p.y / height);
+    var offset = p.x - channelXAt(t);
+    var entryTimeSec = (index / OFFSCREEN_ENTRY_RATE) + Math.random() * ENTRY_STAGGER_SECONDS;
+    return makeDot(t, offset, false, entryTimeSec);
+  }
+
+  function generateDots() {
+    dots = [];
+    var i;
+    for (i = 0; i < CHANNEL_DOT_COUNT; i++) dots.push(makeChannelDot());
+    for (i = 0; i < SIDE_STREET_DOT_COUNT; i++) dots.push(makeSideStreetDot());
+    for (i = 0; i < OFFSCREEN_DOT_COUNT; i++) dots.push(makeOffscreenDot(i));
+  }
+
+  function updateDots(dt) {
+    for (var i = 0; i < dots.length; i++) {
+      var d = dots[i];
+      if (elapsedSec < d.entryTimeSec) continue;
+
+      var speed = speedAt(d.t, d.offset); // px/sec
+      d.t += (speed / height) * dt;
+
+      if (!d.isChannelDot) {
+        // Ease the offset into the channel at a rate tied to the same density-driven pace.
+        var decay = CONVERGE_RATE * (speed / MAX_SPEED);
+        d.offset *= Math.exp(-decay * dt);
+      }
+    }
+  }
+
+  function jitter(nowSec, phase, freq) {
+    return JITTER_AMOUNT * Math.sin(nowSec * JITTER_SPEED * freq + phase);
+  }
+
+  function draw(nowSec) {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#fff";
+
+    for (var i = 0; i < dots.length; i++) {
+      var d = dots[i];
+      if (elapsedSec < d.entryTimeSec) continue;
+
+      var x = channelXAt(d.t) + d.offset + wobbleAt(d) + jitter(nowSec, d.phaseX, d.freqX);
+      var y = d.t * height + jitter(nowSec, d.phaseY, d.freqY);
+
+      // Dots continue past the bottom edge (passing by, not stopping dead) — no need to
+      // clamp or cull, the canvas simply won't render points outside its bounds.
+      ctx.beginPath();
+      ctx.arc(x, y, sizeAt(d.t) / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function tick(now) {
+    if (animationDone) return;
+
+    var dt = lastFrameTime ? Math.min((now - lastFrameTime) / 1000, 0.05) : 0;
+    lastFrameTime = now;
+    elapsedSec = Math.min(elapsedSec + dt, durationSec);
+
+    updateDots(dt);
+    draw(now / 1000);
+
+    if (elapsedSec >= durationSec) {
+      animationDone = true;
+      return;
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  window.addEventListener("resize", resize);
+  resize();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
