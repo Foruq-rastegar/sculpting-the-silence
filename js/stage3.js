@@ -31,7 +31,7 @@
         response: { type: "text", value: "No response" },
         nextMessage: { text: "Momm??" }
       },
-      { cta: "Please try again", loadSpins: 1, response: { type: "image", value: "assets/images/s3_leak_01_img.png" } }
+      { cta: "Please try again", loadSpins: 1, response: { type: "video", value: "assets/video/s3_leak_01_vid.mp4" } }
     ]
   };
 
