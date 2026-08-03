@@ -3,9 +3,12 @@
    Ported from prototypes/field-default.html (perspective, the curved
    "channel", the three dot populations, density-based speed, path wobble,
    the core density band, size gradient). Exposed as window.Field with a
-   small public API — init/startIdleJitter/startFlow/stopFlow/setZoom —
-   driven externally by each stage's own timing rather than a fixed
-   internal duration. Must load before any stage-N.js file that calls it.
+   small public API — init/startIdleJitter/startFlow/stopFlow/setZoom/
+   setVisible — driven externally by each stage's own timing rather than a
+   fixed internal duration. Must load before any stage-N.js file that
+   calls it. startIdleJitter/startFlow/stopFlow/setZoom also broadcast
+   over BroadcastChannel (see shared.js) for the dev-only frame/field
+   screen-mode split; setVisible and init stay local to each window.
    ========================================================================== */
 
 (function () {
@@ -71,6 +74,22 @@
   var zoomScale = 1;
   var zoomPivotX = 0;
   var zoomPivotY = 0;
+
+  /* ------------------------------------------------------------------
+     Cross-window sync (BroadcastChannel) — dev/testing only, see
+     shared.js. The window actually driving a stage's real logic (combined
+     or frame mode) calls window.Field's methods normally; those wrapped
+     methods (see the Public API section below) also broadcast the call so
+     a field-mode window's own local Field instance mirrors the same
+     motion state. Received messages call the internal functions directly
+     (not the broadcasting wrapper) so nothing re-broadcasts.
+     ------------------------------------------------------------------ */
+  var SYNC_CHANNEL_NAME = "sculpting-the-silence-sync"; // must match shared.js's channel name
+  var syncChannel = ("BroadcastChannel" in window) ? new BroadcastChannel(SYNC_CHANNEL_NAME) : null;
+
+  function broadcastFieldCall(method, args) {
+    if (syncChannel) syncChannel.postMessage({ type: "field", method: method, args: args || [] });
+  }
 
   function gaussianRandom() {
     var u = 1 - Math.random();
@@ -371,6 +390,22 @@
 
     window.addEventListener("resize", resize);
     resize(); // sizes the canvas, generates dots, draws one static frame
+
+    // Dev/testing screen modes (see shared.js): ?screen=frame shows only
+    // .frame (CSS handles that), so hide the field here to match; the
+    // engine keeps running underneath, just not painted.
+    if (window.STS && window.STS.screenMode === "frame") {
+      setVisible(false);
+    }
+  }
+
+  // Shows/hides the canvas without touching its running animation state —
+  // used by ?screen=frame (dev/testing, see shared.js) to hide the field
+  // while .frame is shown. Purely local: visibility depends on which
+  // screen mode THIS window is, so it's never broadcast to the other one.
+  function setVisible(visible) {
+    if (!canvas) return;
+    canvas.style.display = visible ? "" : "none";
   }
 
   // Dots only do their small idle wobble in place — no directional movement.
@@ -403,11 +438,40 @@
     renderFrame(lastRenderedNowSec); // force a redraw even while frozen/static
   }
 
+  if (syncChannel) {
+    syncChannel.onmessage = function (event) {
+      var msg = event.data;
+      if (!msg || msg.type !== "field") return;
+
+      // Calls the internal function directly (not the broadcasting
+      // wrapper below), so receiving a message never re-broadcasts it.
+      switch (msg.method) {
+        case "startIdleJitter": startIdleJitter(); break;
+        case "startFlow": startFlow(); break;
+        case "stopFlow": stopFlow(); break;
+        case "setZoom": setZoom(msg.args && msg.args[0]); break;
+      }
+    };
+  }
+
   window.Field = {
-    init: init,
-    startIdleJitter: startIdleJitter,
-    startFlow: startFlow,
-    stopFlow: stopFlow,
-    setZoom: setZoom
+    init: init, // not broadcast — each window generates its own dot population
+    startIdleJitter: function () {
+      startIdleJitter();
+      broadcastFieldCall("startIdleJitter");
+    },
+    startFlow: function () {
+      startFlow();
+      broadcastFieldCall("startFlow");
+    },
+    stopFlow: function () {
+      stopFlow();
+      broadcastFieldCall("stopFlow");
+    },
+    setZoom: function (scale) {
+      setZoom(scale);
+      broadcastFieldCall("setZoom", [scale]);
+    },
+    setVisible: setVisible // local-only (see above), never broadcast
   };
 })();

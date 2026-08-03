@@ -16,6 +16,34 @@
   var STS = window.STS;
 
   /* ------------------------------------------------------------------
+     Screen mode — dev/testing only, not the final exhibition
+     architecture. ?screen=frame / ?screen=field / no param (combined,
+     default, current behavior). Exposed as STS.screenMode; CSS hooks off
+     the matching data-screen-mode attribute on <html> (see global.css).
+     ------------------------------------------------------------------ */
+  var screenModeParam = new URLSearchParams(window.location.search).get("screen");
+  var screenMode = (screenModeParam === "frame" || screenModeParam === "field") ? screenModeParam : "combined";
+  document.documentElement.setAttribute("data-screen-mode", screenMode);
+  STS.screenMode = screenMode;
+
+  /* ------------------------------------------------------------------
+     Cross-window sync (BroadcastChannel) — dev/testing only. When the
+     frame and field are opened as two separate windows/monitors, this
+     keeps them showing the same stage and field motion state instead of
+     each window independently (and, for the field window, silently)
+     re-running stage logic like video/audio playback. The window that
+     actually runs a stage's real logic (combined mode, or frame mode)
+     broadcasts every stage change here; a field-mode window only ever
+     applies the "is-active" class from an incoming message — it never
+     runs stageEnterHandlers itself, so it never independently starts
+     playback. Field's own start/stop/zoom calls are broadcast the same
+     way from within field.js.
+     ------------------------------------------------------------------ */
+  var SYNC_CHANNEL_NAME = "sculpting-the-silence-sync"; // field.js must match this name
+  var syncChannel = ("BroadcastChannel" in window) ? new BroadcastChannel(SYNC_CHANNEL_NAME) : null;
+  STS.syncChannel = syncChannel;
+
+  /* ------------------------------------------------------------------
      State machine — stage-advance core. Each stage is a DOM section with
      id="stage-N" and class "stage". goToStage() toggles the "is-active"
      class. Add future stages by extending TOTAL_STAGES and giving each
@@ -32,29 +60,60 @@
     stageEnterHandlers[stageNumber] = handler;
   }
 
+  // DOM bookkeeping only — no stageEnterHandlers side effects. Shared by
+  // goToStage (which also runs the handler) and by an incoming sync
+  // message (which must NOT re-trigger a stage's video/audio locally).
+  function applyActiveStageClass(stageNumber) {
+    var stages = document.querySelectorAll(".stage");
+    stages.forEach(function (stageEl) {
+      stageEl.classList.remove("is-active");
+    });
+
+    var stageEl = document.getElementById("stage-" + stageNumber);
+    if (stageEl) {
+      stageEl.classList.add("is-active");
+    }
+  }
+
   function goToStage(stageNumber) {
     if (stageNumber < 1 || stageNumber > TOTAL_STAGES) {
       console.warn("goToStage: invalid stage number", stageNumber);
       return;
     }
 
-    var stages = document.querySelectorAll(".stage");
-    stages.forEach(function (stageEl) {
-      stageEl.classList.remove("is-active");
-    });
-
-    var nextStageEl = document.getElementById("stage-" + stageNumber);
-    if (nextStageEl) {
-      nextStageEl.classList.add("is-active");
-    }
-
+    applyActiveStageClass(stageNumber);
     currentStage = stageNumber;
+
+    if (syncChannel) {
+      syncChannel.postMessage({ type: "stage", stage: stageNumber });
+    }
 
     var handler = stageEnterHandlers[stageNumber];
     if (handler) {
       delete stageEnterHandlers[stageNumber]; // run once
       handler();
     }
+  }
+
+  if (syncChannel) {
+    syncChannel.onmessage = function (event) {
+      var msg = event.data;
+      if (!msg) return;
+
+      if (msg.type === "stage") {
+        applyActiveStageClass(msg.stage);
+        currentStage = msg.stage;
+      } else if (msg.type === "request-state") {
+        // A window just opened (e.g. the field monitor, after the frame
+        // window already advanced) — tell it where we currently are.
+        syncChannel.postMessage({ type: "stage", stage: currentStage });
+      }
+    };
+
+    // Ask whoever's already open/driving for the current stage, so a
+    // window opened after the other one has already advanced can catch
+    // up instead of sitting on stage 1.
+    syncChannel.postMessage({ type: "request-state" });
   }
 
   function goToNextStage() {

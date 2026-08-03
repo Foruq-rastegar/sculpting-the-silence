@@ -79,6 +79,15 @@ body {
   pointer-events: none;
 }
 
+/* Dev/testing screen modes (see shared.js's STS.screenMode) — split the
+   frame and field across two windows/monitors. ?screen=field shows only
+   this canvas (the .frame is hidden here; the canvas itself is hidden the
+   other way, via Field.setVisible(false), when ?screen=frame). Default
+   (no param, "combined") shows both together as already built. */
+html[data-screen-mode="field"] .frame {
+  display: none;
+}
+
 /* Centered content frame, fixed design width that shrinks on narrow
    viewports. Sits above the background layer. Plain by default — the
    frosted-card look (blur/tint/grain) is opt-in via .frame--intro. */

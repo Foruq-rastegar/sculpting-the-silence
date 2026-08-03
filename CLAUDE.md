@@ -13,8 +13,9 @@ An offline, kiosk-style interactive art installation: 5 sequential stages, vanil
 - `js/shared.js` — common helpers/components used by every stage: the stage-advance state
   machine (`STS.goToStage`/`registerStageEnter`/`goToNextStage`), cta button click/touch/Enter
   binding, the typewriter effect, the reusable spinner, the "message moment" attempt-ladder
-  component, the full-viewport blackout helper, and the stage-3 background audio loop
-  controllers. Everything is exposed on `window.STS`. Must load before any `stage-N.js` file.
+  component, the full-viewport blackout helper, the stage-3 background audio loop controllers,
+  and the dev-only screen-mode/cross-window sync setup (see "Dev screen modes" below).
+  Everything is exposed on `window.STS`. Must load before any `stage-N.js` file.
 - `js/field.js` — the background point-field engine (perspective, the curved "channel",
   three dot populations, density-based speed, path wobble), exposed as `window.Field` with
   `init/startIdleJitter/startFlow/stopFlow/setZoom`. Ported from and kept in sync with
@@ -114,13 +115,40 @@ clear its drawn bitmap or reset its context). `.field-canvas` has no explicit `z
 Public API: `init(canvas)` (static default state, no motion), `startIdleJitter()` (idle wobble
 only), `startFlow()` (channel-joining movement begins — no fixed duration; the caller decides how
 long it runs), `stopFlow()` (freezes everything immediately, holds in place), `setZoom(scale)`
-(camera zoom around the channel's center, e.g. so individual dots read clearly). Each stage wires
-up its own timing by calling these from its own moment logic — stage 1 only calls `init` (dots
-stay fully static); stage 2 starts idle jitter when `s2_mom_02` starts playing, starts flow 5s
-later, and stops flow the instant the video's `ended` event fires (see `stage2.js`'s
+(camera zoom around the channel's center, e.g. so individual dots read clearly), `setVisible(bool)`
+(shows/hides the canvas without touching its running animation state). Each stage wires up its own
+timing by calling these from its own moment logic — stage 1 only calls `init` (dots stay fully
+static); stage 2 starts idle jitter when `s2_mom_02` starts playing, starts flow 5s later, and
+stops flow the instant the video's `ended` event fires (see `stage2.js`'s
 `FIELD_FLOW_START_DELAY_MS`) — so the flow's active duration is however long the real video leaves
 after that 5s intro, not a hardcoded number, following the same "duration follows the real asset"
 principle as `playLeakVideo`'s zoom/fade timing in `shared.js`. Stage 3+ timing isn't wired up yet.
+
+## Dev screen modes (frame/field split)
+
+**Dev/testing only — not the final exhibition architecture.** `?screen=frame` / `?screen=field` /
+no param (`"combined"`, default, current/full behavior) as a URL query param, read once in
+`shared.js` into `STS.screenMode` and mirrored to a `data-screen-mode` attribute on `<html>` for
+CSS. `?screen=frame` hides the field canvas (`Field.setVisible(false)`, called from `field.js`'s
+own `init()`) and shows only `.frame`; `?screen=field` hides `.frame` (`display: none`, in
+`global.css`) and shows only the field canvas full-viewport — open one on the laptop screen, drag
+the other to a second monitor and go fullscreen.
+
+Both windows load the same `index.html`, so they're two independent JS contexts — without help
+they'd each try to run a stage's real logic (video/audio, timers) independently and drift apart, or
+worse, both play the video's audio at once. A `BroadcastChannel` (`"sculpting-the-silence-sync"`,
+same name in both `shared.js` and `field.js`) fixes this cheaply: whichever window actually runs
+the real logic (combined or frame mode — in field mode `.frame`'s CTA buttons are hidden/inert, so
+nothing ever triggers stage logic there) broadcasts every `goToStage` call and every
+`startIdleJitter`/`startFlow`/`stopFlow`/`setZoom` call; the other window applies only the
+"is-active" class (`shared.js`'s `applyActiveStageClass`, not the full handler — never re-triggers
+video/audio) or the internal field function directly (`field.js`'s `onmessage`, not the
+broadcasting wrapper — never re-broadcasts). A window also asks for the current stage on load
+(`{type:"request-state"}`) so opening the field monitor after the frame window has already advanced
+catches it up. `BroadcastChannel` requires same-origin, which holds for two `file://` windows of the
+same path in Chromium (tested) as well as two tabs of the same local server — but isn't guaranteed
+across all browsers, so this is a dev convenience, not something to rely on for the exhibition
+build.
 
 ## CTA buttons
 
