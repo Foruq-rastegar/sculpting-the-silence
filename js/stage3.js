@@ -117,9 +117,7 @@
         response: { type: "text", value: "No connection" },
         nextMessage: { text: "Do you hear me?" }
       },
-      // Plain video leak like any other — no caption, no slide-up
-      // transition (that one-off special case has been removed).
-      { cta: "Connect", loadSpins: 4, response: { type: "video", value: "assets/video/s3_leak_07_vid.mp4" } }
+      { cta: "Connect", loadSpins: 4, response: { type: "image", value: "assets/images/s3_leak_07_img.png" } }
     ]
   };
 
