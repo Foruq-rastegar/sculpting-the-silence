@@ -58,6 +58,25 @@ body {
   z-index: 0;
 }
 
+/* Persistent background point field (js/field.js via window.Field) — a
+   single full-viewport canvas living outside every .stage, so it survives
+   stage transitions untouched. Deliberately has NO explicit z-index: any
+   position:fixed element (like .stage) always forms its own stacking
+   context regardless of z-index, so an auto-z-index .stage would ignore
+   DOM order and sit BEHIND a sibling with an explicit z-index no matter
+   which comes first in the document. Leaving this at z-index:auto too and
+   placing it before every .stage in index.html means plain DOM order
+   decides instead — this canvas paints first, then the active .stage
+   (background-layer + frame, stacked internally as already built) paints
+   entirely on top of it. Purely decorative — never intercepts input. */
+.field-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  pointer-events: none;
+}
+
 /* Centered content frame, fixed design width that shrinks on narrow
    viewports. Sits above the background layer. Plain by default — the
    frosted-card look (blur/tint/grain) is opt-in via .frame--intro. */

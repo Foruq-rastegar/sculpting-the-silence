@@ -71,6 +71,17 @@
   var CUTOFF_TEXT = "As the protests peaked, the government completely blacked out all communication channels in Iran for";
   var CUTOFF_CHARS_PER_SECOND = 14;
 
+  // Background point field (js/field.js): idle jitter starts as soon as the
+  // social-feeds video (s2_mom_02) starts playing; the channel-joining flow
+  // begins a fixed 5s later and freezes the instant the video ends — its
+  // active duration is however long that leaves, not a fixed number.
+  var FIELD_FLOW_START_DELAY_MS = 5000;
+
+  // Zoom applied to the field during s2_mom_03 (the cutoff/counter moment)
+  // so individual dots read clearly — no color-changing yet, just prepping
+  // the zoom level for that later work.
+  var STAGE2_FIELD_ZOOM = 4;
+
   // Escalating minutes-then-hours-then-days counter (moment 2.2) —
   // continues the cutoff text's trailing "for" (e.g. "...for 18+ Days").
   var MINUTES_MAX = 60;
@@ -197,13 +208,22 @@
             advance();
             return;
           }
+          var flowStartTimer = null;
           var onEnded = function () {
             videoEl.removeEventListener("ended", onEnded);
+            if (flowStartTimer) clearTimeout(flowStartTimer);
+            if (window.Field) window.Field.stopFlow();
             advance();
           };
           videoEl.addEventListener("ended", onEnded);
           videoEl.load();
           var playPromise = videoEl.play();
+          if (window.Field) {
+            window.Field.startIdleJitter();
+            flowStartTimer = setTimeout(function () {
+              window.Field.startFlow();
+            }, FIELD_FLOW_START_DELAY_MS);
+          }
           if (playPromise && playPromise.catch) {
             playPromise.catch(function () {});
           }
@@ -232,6 +252,8 @@
         el: document.getElementById("stage-2-moment-cutoff"),
         run: function (advance) {
           var typingDurationMs = (CUTOFF_TEXT.length / CUTOFF_CHARS_PER_SECOND) * 1000;
+
+          if (window.Field) window.Field.setZoom(STAGE2_FIELD_ZOOM);
 
           STS.typeText(cutoffTextEl, CUTOFF_TEXT, CUTOFF_CHARS_PER_SECOND);
           playEscalatingCounter(counterNumberEl, counterCaptionEl, typingDurationMs);

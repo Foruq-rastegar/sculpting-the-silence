@@ -8,6 +8,11 @@
 </head>
 <body>
 
+  <!-- Persistent background point field, sits behind every stage's .frame
+       (but above each stage's own .background-layer). Driven by js/field.js
+       via window.Field; each stage wires up its own timing. -->
+  <canvas id="field-canvas" class="field-canvas"></canvas>
+
   <!-- Stage 1: Content Warning -->
   <section id="stage-1" class="stage stage-1 is-active" data-stage="1">
     <div class="background-layer" style="background-image: url('assets/images/s1_banner_sensitive_content_img.png');"></div>
@@ -103,6 +108,7 @@
   </section>
 
   <script src="js/shared.js"></script>
+  <script src="js/field.js"></script>
   <script src="js/stage1.js"></script>
   <script src="js/stage2.js"></script>
   <script src="js/stage3.js"></script>

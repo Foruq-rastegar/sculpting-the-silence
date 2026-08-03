@@ -19,6 +19,13 @@
   }
 
   function initStage1() {
+    // Background point field: static default state only. No idle jitter,
+    // no flow — dots don't move at all during stage 1.
+    var fieldCanvas = document.getElementById("field-canvas");
+    if (fieldCanvas && window.Field) {
+      window.Field.init(fieldCanvas);
+    }
+
     // s1_mom_01 (title + body) shows instantly — no typing animation.
     // Both are already static text in index.html, so there's nothing
     // else to wire up here besides the continue button.

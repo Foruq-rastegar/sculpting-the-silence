@@ -5,14 +5,22 @@ An offline, kiosk-style interactive art installation: 5 sequential stages, vanil
 
 ## File structure
 
-- `index.html` — all 5 `<section class="stage" id="stage-N">` containers, plus the shared
-  `<script>` tags (load order matters: `shared.js` first, then `stage1.js` … `stage4-5.js`).
+- `index.html` — a persistent `<canvas id="field-canvas">` (background point field, see below)
+  followed by all 5 `<section class="stage" id="stage-N">` containers, plus the shared
+  `<script>` tags (load order matters: `shared.js` first, then `field.js`, then `stage1.js` …
+  `stage4-5.js`).
 - `css/global.css` — all styles, one file, organized in commented sections per stage.
 - `js/shared.js` — common helpers/components used by every stage: the stage-advance state
   machine (`STS.goToStage`/`registerStageEnter`/`goToNextStage`), cta button click/touch/Enter
   binding, the typewriter effect, the reusable spinner, the "message moment" attempt-ladder
   component, the full-viewport blackout helper, and the stage-3 background audio loop
   controllers. Everything is exposed on `window.STS`. Must load before any `stage-N.js` file.
+- `js/field.js` — the background point-field engine (perspective, the curved "channel",
+  three dot populations, density-based speed, path wobble), exposed as `window.Field` with
+  `init/startIdleJitter/startFlow/stopFlow/setZoom`. Ported from and kept in sync with
+  `prototypes/field-default.html`, where its visual tuning is done before porting changes back.
+  Each stage drives its own timing externally (no fixed internal duration). Must load before
+  any `stage-N.js` file that calls it.
 - `js/stage1.js`, `js/stage2.js`, `js/stage3.js` — one file per stage.
 - `js/stage4-5.js` — stages 4 and 5 combined in one file, since they're tightly connected
   (stage 4's last "moment" opens directly into stage 5's continuous 11780-reveal-then-form
@@ -86,6 +94,31 @@ for `spinCount` visible rotations (`SPIN_DURATION_MS` = 900ms each) then calls b
 convenience for picking a rotation count, not a strict per-moment ladder: individual message-
 moment attempts (their `loadSpins` field) pick whichever preset fits that attempt's pacing, and
 don't always run in descending order across a moment's attempts.
+
+## Background point field
+
+`js/field.js` (`window.Field`) renders a single full-viewport `<canvas id="field-canvas">` that
+lives outside every `.stage`, so it persists untouched across stage transitions instead of being
+recreated per stage. It deliberately has **no explicit `z-index`**: `position: fixed` always
+creates its own stacking context regardless of z-index, so `.stage` (also `position: fixed`, its
+own `z-index: auto`) would ignore DOM order and sit *behind* any sibling that declares an explicit
+z-index, no matter which comes first in the document — giving the canvas a z-index (even one lower
+than `.frame`'s) would hide the entire active stage behind it. Leaving both at `z-index: auto` and
+placing the canvas before every `.stage` in `index.html` means plain DOM order decides instead:
+the canvas paints first, then the active stage (background-layer + frame, stacked internally as
+already built) paints entirely on top of it. `pointer-events: none` — purely decorative, never
+intercepts input.
+
+Public API: `init(canvas)` (static default state, no motion), `startIdleJitter()` (idle wobble
+only), `startFlow()` (channel-joining movement begins — no fixed duration; the caller decides how
+long it runs), `stopFlow()` (freezes everything immediately, holds in place), `setZoom(scale)`
+(camera zoom around the channel's center, e.g. so individual dots read clearly). Each stage wires
+up its own timing by calling these from its own moment logic — stage 1 only calls `init` (dots
+stay fully static); stage 2 starts idle jitter when `s2_mom_02` starts playing, starts flow 5s
+later, and stops flow the instant the video's `ended` event fires (see `stage2.js`'s
+`FIELD_FLOW_START_DELAY_MS`) — so the flow's active duration is however long the real video leaves
+after that 5s intro, not a hardcoded number, following the same "duration follows the real asset"
+principle as `playLeakVideo`'s zoom/fade timing in `shared.js`. Stage 3+ timing isn't wired up yet.
 
 ## CTA buttons
 
