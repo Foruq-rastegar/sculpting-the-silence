@@ -248,7 +248,7 @@
       });
     }
 
-    STS.typeText(titleEl, "11780", STAGE_4_CHARS_PER_SECOND, function () {
+    STS.typeText(titleEl, "#11780", STAGE_4_CHARS_PER_SECOND, function () {
       STS.typeText(
         subtextEl,
         "Their body, perhaps, was never identified by their family. But there might still be a human to call them by a name, to recall them by a memory…",
