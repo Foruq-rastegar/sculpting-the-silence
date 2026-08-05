@@ -43,18 +43,10 @@
                                          // start moving in perfect unison
 
   // Density-based speed, in px/sec
-  var MIN_SPEED = 4;                    // px/sec, densest areas — constant, untouched by the dip below
-  var MAX_SPEED = 5;                    // px/sec, sparsest areas — the *normal* (steady-state) value
+  var MIN_SPEED = 4;                    // px/sec, densest areas
+  var MAX_SPEED = 5;                    // px/sec, sparsest areas
   var CONVERGE_RATE = 0.6;              // 1/sec, how fast a side-street/off-screen dot's
                                          // offset collapses into the channel at top speed
-
-  // EXPERIMENTAL — temporarily dips MAX_SPEED (sparse/outer dots only; MIN_SPEED
-  // is never touched) for the first part of the flow phase, then ramps back up
-  // to normal. Timed from the instant startFlow() fires (elapsedSec, reset to 0
-  // there). See maxSpeedAt() below.
-  var MAX_SPEED_DIP_FRACTION = 0.5;      // MAX_SPEED is halved (5 -> 2.5) during the dip
-  var MAX_SPEED_DIP_END_SEC = 10;        // dip holds until this many seconds into the flow
-  var MAX_SPEED_RAMP_DURATION_SEC = 0.5; // then ramps back up to normal over this long
 
   var JITTER_AMOUNT = 1.4;              // px, idle wobble amplitude
   var JITTER_SPEED = 1.0;               // idle wobble oscillation speed multiplier
@@ -136,40 +128,11 @@
     return vertical * lateral;
   }
 
-  // Fast pickup, smooth settle — used only by maxSpeedAt()'s brief ramp back
-  // to normal speed after the dip (see below).
-  function easeOutCubic(t) {
-    var inv = 1 - t;
-    return 1 - inv * inv * inv;
-  }
-
-  // The sparse/outer-dot ceiling speed at a given point in the flow phase
-  // (elapsedSec, time since startFlow()): halved for the first
-  // MAX_SPEED_DIP_END_SEC seconds, then eases back up to the normal
-  // MAX_SPEED over MAX_SPEED_RAMP_DURATION_SEC. MIN_SPEED (the main-channel/
-  // dense-area speed) never goes through this function and is unaffected.
-  function maxSpeedAt(elapsedSec) {
-    var dippedSpeed = MAX_SPEED * (1 - MAX_SPEED_DIP_FRACTION);
-
-    if (elapsedSec < MAX_SPEED_DIP_END_SEC) {
-      return dippedSpeed;
-    }
-
-    var rampElapsedSec = elapsedSec - MAX_SPEED_DIP_END_SEC;
-    if (rampElapsedSec >= MAX_SPEED_RAMP_DURATION_SEC) {
-      return MAX_SPEED;
-    }
-
-    var t = rampElapsedSec / MAX_SPEED_RAMP_DURATION_SEC;
-    return dippedSpeed + (MAX_SPEED - dippedSpeed) * easeOutCubic(t);
-  }
-
-  // Forward-drift pace in px/sec: maxSpeed (see maxSpeedAt()) in sparse
-  // areas, easing down to MIN_SPEED as density rises. MIN_SPEED itself is
-  // always the constant declared above, regardless of maxSpeed.
-  function speedAt(t, offset, maxSpeed) {
+  // Forward-drift pace in px/sec: MAX_SPEED in sparse areas, easing down to MIN_SPEED as
+  // density rises.
+  function speedAt(t, offset) {
     var density = densityAt(t, offset);
-    return maxSpeed - (maxSpeed - MIN_SPEED) * density;
+    return MAX_SPEED - (MAX_SPEED - MIN_SPEED) * density;
   }
 
   // Minimal smooth 1D value noise (Perlin-style) — no external deps.
@@ -275,18 +238,16 @@
   }
 
   function updateDots(dt) {
-    var maxSpeed = maxSpeedAt(elapsedSec); // same for every dot this frame
-
     for (var i = 0; i < dots.length; i++) {
       var d = dots[i];
       if (elapsedSec < d.entryTimeSec) continue;
 
-      var speed = speedAt(d.t, d.offset, maxSpeed); // px/sec
+      var speed = speedAt(d.t, d.offset); // px/sec
       d.t += (speed / height) * dt;
 
       if (!d.isChannelDot) {
         // Ease the offset into the channel at a rate tied to the same density-driven pace.
-        var decay = CONVERGE_RATE * (speed / maxSpeed);
+        var decay = CONVERGE_RATE * (speed / MAX_SPEED);
         d.offset *= Math.exp(-decay * dt);
       }
     }
