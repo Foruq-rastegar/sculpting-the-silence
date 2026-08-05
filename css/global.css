@@ -150,6 +150,7 @@ html.frame-hidden .frame {
   color: var(--color-fg);
   overflow: visible;
   border-radius: var(--frame-radius);
+  --spinner-color: red; /* EXPERIMENTAL — frame's own spinner color, decoupled from the field's */
 }
 
 /* Frosted-card treatment: dark tint + blur + grain. Stage 1 ("Content
@@ -340,6 +341,7 @@ html.frame-hidden .frame {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  --spinner-color: red; /* EXPERIMENTAL — field's own spinner color, decoupled from the frame's */
 }
 
 /* Escalating minutes-then-hours-then-days counter (moment 2.2, s2_mom_03)
@@ -481,13 +483,16 @@ html.frame-hidden .frame {
 }
 
 /* Rotates for a caller-supplied animation-iteration-count (set inline per
-   attempt) then stops via 'animationend' — never set to infinite here. */
+   attempt) then stops via 'animationend' — never set to infinite here.
+   Color reads --spinner-color, which .frame and the field's own spinner
+   mount each set independently (see below) — the same STS.runSpinner
+   component is reused by both, but its color is decoupled per screen. */
 .message-moment__spinner {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.25);
-  border-top-color: var(--color-fg);
+  border-top-color: var(--spinner-color, var(--color-fg));
   animation-name: message-moment-spin;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
