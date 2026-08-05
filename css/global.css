@@ -309,6 +309,39 @@ html.frame-hidden .frame {
   padding: 0;
 }
 
+/* EXPERIMENTAL — mounts the field-layer's own mirrored load_anim_1/
+   load_anim_2 spinner (see stage2.js's playFieldSpinnerSequence) — a direct
+   child of #stage-2, positioned the same way as .stage-2__moment--blackout
+   above (inset:0 sizes it to the whole fixed .stage box), but NOT a
+   ".moment" (see the HTML comment on this element for why) so it's always
+   present rather than toggled by .moment.is-active; it simply renders
+   nothing while empty. No z-index override: it sits behind .frame in DOM
+   order (right after the field canvas), same stacking position as the
+   field canvas itself — visible on the field-only dev screen (where .frame
+   is hidden), and harmlessly covered by .frame in combined mode.
+   Decorative only, like the field canvas — never intercepts input.
+
+   The box itself (30vw square, centered via inset:0 + margin:auto) is a
+   separate experimental treatment: auto-layout (flex) centering its own
+   content, 20%-of-its-own-width padding inset on all sides (computed
+   directly as 6vw — CSS % padding resolves against the *containing
+   block's* width, not this element's own width, so 20% written here would
+   actually mean 20% of the viewport, not of this 30vw box), 50%-opacity
+   black fill. */
+.stage-2__moment--field-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto; /* combined with the explicit width/height below, centers this box within inset:0 */
+  width: 30vw;
+  height: 30vw;
+  padding: 6vw; /* 20% of this box's own 30vw width/height */
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 /* Escalating minutes-then-hours-then-days counter (moment 2.2, s2_mom_03)
    — continues the cutoff text's trailing "for" (e.g. "...for 18+ Days"). */
 .counter-widget {
