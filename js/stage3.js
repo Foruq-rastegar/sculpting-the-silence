@@ -178,9 +178,11 @@
      back to back with STS.runMessageMoment, in order, advancing to the
      next entry each time one completes. onMomentStart(index) fires right
      before each entry starts, letting the caller (initStage3 below) sync
-     the background audio loops to the queue.
+     the background audio loops to the queue. onLeakShown is passed through
+     to every STS.runMessageMoment call unchanged (see its own doc comment
+     in shared.js).
      ------------------------------------------------------------------ */
-  function runMessageMomentQueue(containerEl, queue, onQueueComplete, onMomentStart) {
+  function runMessageMomentQueue(containerEl, queue, onQueueComplete, onMomentStart, onLeakShown) {
     var index = 0;
 
     function playNext() {
@@ -192,7 +194,7 @@
       var startingIndex = index;
       index += 1;
       if (onMomentStart) onMomentStart(startingIndex);
-      STS.runMessageMoment(containerEl, data, playNext);
+      STS.runMessageMoment(containerEl, data, playNext, onLeakShown);
     }
 
     playNext();
@@ -295,8 +297,49 @@
   // the form is actually submitted (see stage4-5.js's initStage5).
   var STAGE_3_UNDERSCORE_START_INDEX = STAGE_3_GUNSHOT_START_INDEX;
 
+  // Field memorial reveal (s3_mom_05 through s3_mom_10): the 5 gray-out
+  // jumps are paced against this estimate, measured via an automated,
+  // as-fast-as-possible click-through of every attempt between "Mom?" and
+  // "Dad?" (real elapsed time from s3_gunshot_snd's "play" to its "pause").
+  // A real participant reading each message will very likely take longer
+  // than this — that's fine, since the real "pause" event (not this
+  // estimate) is what actually ends the reveal; this number only affects
+  // how evenly-paced the 5 jumps look along the way.
+  var GUNSHOT_DURATION_ESTIMATE_MS = 83800; // ~83.8s
+
   function initStage3() {
     var momentMountEl = document.getElementById("stage-3-moment-mount");
+    var gunshotAudioEl = document.getElementById("stage-3-gunshot-audio");
+
+    if (gunshotAudioEl && window.Field) {
+      // Triggers phase 2 of the field zoom (recoilZoom(), a sharp -30%
+      // snap) and the field's memorial reveal (startMemorialReveal(), see
+      // field.js — this also starts fleeing group 1, the first of 4
+      // staggered groups, see below) the instant s3_gunshot_snd actually
+      // starts playing (STS.gunshotAudio.start() below, at s3_mom_05) — a
+      // real event trigger off the audio file's own native "play" event,
+      // not a computed duration, so both always hand off at exactly the
+      // right instant.
+      var onGunshotPlay = function () {
+        gunshotAudioEl.removeEventListener("play", onGunshotPlay);
+        window.Field.recoilZoom();
+        window.Field.startMemorialReveal(GUNSHOT_DURATION_ESTIMATE_MS);
+      };
+      gunshotAudioEl.addEventListener("play", onGunshotPlay);
+
+      // Stopping s3_gunshot_snd is an explicit STS.gunshotAudio.stop() call
+      // (below, at s3_mom_10/"Dad?") — not a natural "ended", since the
+      // element loops indefinitely. That stop() calls audioEl.pause(),
+      // which still fires the audio element's own native "pause" event, so
+      // this is the same event-driven pattern as the "play" listener above:
+      // finishes the memorial reveal exactly when the audio actually stops,
+      // not on a computed delay.
+      var onGunshotPause = function () {
+        gunshotAudioEl.removeEventListener("pause", onGunshotPause);
+        window.Field.stopMemorialReveal();
+      };
+      gunshotAudioEl.addEventListener("pause", onGunshotPause);
+    }
 
     runMessageMomentQueue(
       momentMountEl,
@@ -313,6 +356,31 @@
           STS.gunshotAudio.start();
         } else if (momentIndex === STAGE_3_GUNSHOT_STOP_INDEX) {
           STS.gunshotAudio.stop();
+        }
+      },
+      // EXPERIMENTAL — staggers the field's fleeing dots into 4 groups (see
+      // field.js's startFleeGroup()): group 1 already starts with
+      // startMemorialReveal() above, off s3_gunshot_snd's own "play" event.
+      // Groups 2-4 have no native media event to hook (images don't fire
+      // "play"), so they're triggered off this leak-shown callback instead
+      // — the same moment-runner-level signal frame already has for when a
+      // specific leak begins rendering, matched here by asset filename.
+      // Also drives two later, unrelated #11780-only field effects off the
+      // same signal: response.value is a plain string ("#11780") rather
+      // than a file path for ARE_YOU_ALIVE_MESSAGE_DATA's final attempt
+      // (s3_mom_11), matched with === instead of indexOf.
+      function (response) {
+        if (!window.Field || !response || typeof response.value !== "string") return;
+        if (response.value.indexOf("s3_leak_01_vid") !== -1) {
+          window.Field.startFleeGroup(2);
+        } else if (response.value.indexOf("s3_leak_02_img") !== -1) {
+          window.Field.startFleeGroup(3);
+        } else if (response.value.indexOf("s3_leak_03_img") !== -1) {
+          window.Field.startFleeGroup(4);
+        } else if (response.value.indexOf("s3_leak_07_img") !== -1) {
+          window.Field.addEleven780Stroke();
+        } else if (response.value === "#11780") {
+          window.Field.doubleEleven780Size();
         }
       }
     );

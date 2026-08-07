@@ -56,10 +56,10 @@
                                          // up alongside OFFSCREEN_DOT_COUNT so entries still
                                          // finish spreading across the same ~40s window
 
-  // Density-based speed — narrow range (2-3x), expressed directly in px/sec so the values
-  // here are concrete regardless of viewport height
+  // Density-based speed, expressed directly in px/sec so the values here are concrete
+  // regardless of viewport height
   var MIN_SPEED = 4;                    // px/sec, densest areas
-  var MAX_SPEED = 8;                    // px/sec, sparsest areas (2x MIN_SPEED)
+  var MAX_SPEED = 5;                    // px/sec, sparsest areas
   var CONVERGE_RATE = 0.6;              // 1/sec, how fast a side-street/off-screen dot's
                                          // offset collapses into the channel at top speed
 
@@ -73,8 +73,8 @@
   // perpendicular to their direction of travel (roughly lateral, since travel is mostly
   // top-to-bottom)
   var WOBBLE_PROPORTION = 0.4;          // fraction of non-channel dots that get any wobble at all
-  var WOBBLE_AMOUNT = 5;                // px, max lateral wobble offset (subtle by default)
-  var WOBBLE_FREQUENCY = 3;             // noise "waves" per full top-to-bottom journey —
+  var WOBBLE_AMOUNT = 34;               // px, max lateral wobble offset (strongly pronounced)
+  var WOBBLE_FREQUENCY = 8;             // noise "waves" per full top-to-bottom journey —
                                          // higher = more winding/frequent turns
   // -------------------------------------------------------------------------
 

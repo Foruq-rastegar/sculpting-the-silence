@@ -314,13 +314,14 @@ html.frame-hidden .frame {
    load_anim_2 spinner (see stage2.js's playFieldSpinnerSequence) — a direct
    child of #stage-2, positioned the same way as .stage-2__moment--blackout
    above (inset:0 sizes it to the whole fixed .stage box), but NOT a
-   ".moment" (see the HTML comment on this element for why) so it's always
-   present rather than toggled by .moment.is-active; it simply renders
-   nothing while empty. No z-index override: it sits behind .frame in DOM
-   order (right after the field canvas), same stacking position as the
-   field canvas itself — visible on the field-only dev screen (where .frame
-   is hidden), and harmlessly covered by .frame in combined mode.
-   Decorative only, like the field canvas — never intercepts input.
+   ".moment" (see the HTML comment on this element for why) — it has its
+   own "is-active" toggle (set/cleared directly by playFieldSpinnerSequence
+   for exactly the run's duration) instead of .moment.is-active. No z-index
+   override: it sits behind .frame in DOM order (right after the field
+   canvas), same stacking position as the field canvas itself — visible on
+   the field-only dev screen (where .frame is hidden), and harmlessly
+   covered by .frame in combined mode. Decorative only, like the field
+   canvas — never intercepts input.
 
    The box itself (30vw square, centered via inset:0 + margin:auto) is a
    separate experimental treatment: auto-layout (flex) centering its own
@@ -328,7 +329,9 @@ html.frame-hidden .frame {
    directly as 6vw — CSS % padding resolves against the *containing
    block's* width, not this element's own width, so 20% written here would
    actually mean 20% of the viewport, not of this 30vw box), 50%-opacity
-   black fill. */
+   black fill. Hidden by default (display:none) rather than relying on
+   being empty-therefore-invisible — now that it has a background fill, an
+   empty-but-displayed box would still show as a plain black square. */
 .stage-2__moment--field-spinner {
   position: absolute;
   inset: 0;
@@ -337,11 +340,16 @@ html.frame-hidden .frame {
   height: 30vw;
   padding: 6vw; /* 20% of this box's own 30vw width/height */
   background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   pointer-events: none;
   --spinner-color: red; /* EXPERIMENTAL — field's own spinner color, decoupled from the frame's */
+  --spinner-size: 15vw; /* EXPERIMENTAL — 50% of this box's own 30vw width/height, decoupled from the frame's fixed 28px */
+}
+
+.stage-2__moment--field-spinner.is-active {
+  display: flex;
 }
 
 /* Escalating minutes-then-hours-then-days counter (moment 2.2, s2_mom_03)
@@ -484,12 +492,13 @@ html.frame-hidden .frame {
 
 /* Rotates for a caller-supplied animation-iteration-count (set inline per
    attempt) then stops via 'animationend' — never set to infinite here.
-   Color reads --spinner-color, which .frame and the field's own spinner
-   mount each set independently (see below) — the same STS.runSpinner
-   component is reused by both, but its color is decoupled per screen. */
+   Color and size read --spinner-color/--spinner-size, which .frame and the
+   field's own spinner mount each set independently (see below) — the same
+   STS.runSpinner component is reused by both, but sized/colored per screen
+   rather than the field inheriting the frame's fixed 28px sizing. */
 .message-moment__spinner {
-  width: 28px;
-  height: 28px;
+  width: var(--spinner-size, 28px);
+  height: var(--spinner-size, 28px);
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.25);
   border-top-color: var(--spinner-color, var(--color-fg));

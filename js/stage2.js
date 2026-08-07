@@ -77,10 +77,27 @@
   // active duration is however long that leaves, not a fixed number.
   var FIELD_FLOW_START_DELAY_MS = 5000;
 
-  // Zoom applied to the field during s2_mom_03 (the cutoff/counter moment)
-  // so individual dots read clearly — no color-changing yet, just prepping
-  // the zoom level for that later work.
-  var STAGE2_FIELD_ZOOM = 4;
+  // Zoom applied to the field starting at s2_mom_03 (the cutoff/counter
+  // moment) — phase 1 of the gunshot "kick" (see field.js's animateZoomTo/
+  // recoilZoom): builds up from 1x to STAGE2_FIELD_ZOOM with a brief ease-in
+  // that blends into constant-velocity linear motion for the rest of the
+  // duration (field.js's buildupFraction) rather than jumping instantly,
+  // starting at the beginning of s2_mom_03 and spanning the rest of stage 2
+  // — its animateZoomTo() duration below is a pacing estimate of that
+  // remaining stage-2 time, but the authoritative cutoff is event-driven:
+  // stage3.js triggers phase 2 (recoilZoom(), a sharp -30% snap) directly
+  // off the s3_gunshot_snd audio element's native "play" event (fired the
+  // instant STS.gunshotAudio.start() actually starts that file playing, at
+  // the very start of stage 3), so phase 1 always meets phase 2 at exactly
+  // the right instant even if this pacing estimate drifts.
+  var STAGE2_FIELD_ZOOM = 2.3;
+
+  // Rotation count of the load_anim_1 spinner immediately following
+  // s2_mom_03 (the "else" branch below, standing in for the disabled
+  // s2_mom_04) — also used below to estimate the remaining stage-2
+  // duration for the zoom's pacing, so the two stay roughly in sync even
+  // if the spin count is retuned.
+  var POST_CUTOFF_LOAD_SPIN_COUNT = 4;
 
   // Escalating minutes-then-hours-then-days counter (moment 2.2) —
   // continues the cutoff text's trailing "for" (e.g. "...for 18+ Days").
@@ -183,6 +200,26 @@
     return stop;
   }
 
+  // Mirrors the frame's own load_anim_1 (4 rotations) then load_anim_2 (3
+  // rotations) spinner beats — see the "load_anim_1"/"load_anim_2" moments
+  // below — onto the field layer itself, via the same STS.runSpinner used
+  // everywhere else. Called directly alongside window.Field.stopFlow(), not
+  // queued through the moments[] runner, so fieldSpinnerEl deliberately
+  // isn't a ".moment" (see its HTML comment). The wrap box itself now has a
+  // background fill (see its CSS), so it's no longer invisible-when-empty —
+  // "is-active" explicitly shows it for exactly the run's duration and
+  // nothing outside it.
+  function playFieldSpinnerSequence(fieldSpinnerEl) {
+    if (!fieldSpinnerEl) return;
+    fieldSpinnerEl.classList.add("is-active");
+    STS.runSpinner(fieldSpinnerEl, 4, function () {
+      STS.runSpinner(fieldSpinnerEl, 3, function () {
+        fieldSpinnerEl.innerHTML = ""; // clear the spinner, back to empty
+        fieldSpinnerEl.classList.remove("is-active"); // hide the wrap box itself
+      });
+    });
+  }
+
   function initStage2() {
     var stageEl = document.getElementById("stage-2");
     if (!stageEl) return;
@@ -196,6 +233,7 @@
     var gunshotAudioEl = document.getElementById("stage-2-gunshot-audio");
     var waveformEl = document.getElementById("stage-2-waveform");
     var spinnerMomentEl = document.getElementById("stage-2-moment-spinner");
+    var fieldSpinnerEl = document.getElementById("stage-2-field-spinner");
 
     var moments = [
       {
@@ -213,6 +251,7 @@
             videoEl.removeEventListener("ended", onEnded);
             if (flowStartTimer) clearTimeout(flowStartTimer);
             if (window.Field) window.Field.stopFlow();
+            playFieldSpinnerSequence(fieldSpinnerEl);
             advance();
           };
           videoEl.addEventListener("ended", onEnded);
@@ -253,7 +292,17 @@
         run: function (advance) {
           var typingDurationMs = (CUTOFF_TEXT.length / CUTOFF_CHARS_PER_SECOND) * 1000;
 
-          if (window.Field) window.Field.setZoom(STAGE2_FIELD_ZOOM);
+          if (window.Field) {
+            // Estimated pacing duration: this moment's own duration plus
+            // the load_anim_1 spinner right after it (the rest of stage 2
+            // under the current ENABLE_S2_MOM_04 = false config). stage3.js
+            // triggers phase 2 (the recoil) directly on s3_gunshot_snd's
+            // "play" event regardless, so this only affects how the
+            // ease-in curve unfolds, not whether it ends at the right instant.
+            var cutoffMomentDurationMs = typingDurationMs + COUNTER_HOLD_MS + CUTOFF_POST_HOLD_MS;
+            var loadAnimDurationMs = POST_CUTOFF_LOAD_SPIN_COUNT * STS.SPIN_DURATION_MS;
+            window.Field.animateZoomTo(STAGE2_FIELD_ZOOM, cutoffMomentDurationMs + loadAnimDurationMs);
+          }
 
           STS.typeText(cutoffTextEl, CUTOFF_TEXT, CUTOFF_CHARS_PER_SECOND);
           playEscalatingCounter(counterNumberEl, counterCaptionEl, typingDurationMs);
@@ -306,10 +355,12 @@
     } else {
       moments.push({
         // load_anim_1 — brief transitional spinner beat standing in for
-        // the disabled s2_mom_04, before moving on to stage 3.
+        // the disabled s2_mom_04, before moving on to stage 3. Its rotation
+        // count is POST_CUTOFF_LOAD_SPIN_COUNT so the field zoom kicked off
+        // in the cutoff moment above finishes exactly when this ends.
         el: spinnerMomentEl,
         run: function (advance) {
-          STS.runSpinner(spinnerMomentEl, 4, advance);
+          STS.runSpinner(spinnerMomentEl, POST_CUTOFF_LOAD_SPIN_COUNT, advance);
         }
       });
     }

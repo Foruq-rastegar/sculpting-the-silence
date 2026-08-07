@@ -315,8 +315,15 @@
   }
 
   STS.runSpinner = runSpinner;
+  STS.SPIN_DURATION_MS = SPIN_DURATION_MS; // exposed so callers can compute a spinner's total duration (spinCount * this)
 
-  function runMessageMoment(containerEl, data, onComplete) {
+  // onLeakShown(response) is optional — fired right as a terminal leak
+  // (image/video/audio/chain, or the final attempt's text) begins
+  // rendering, i.e. at the same points clearMessageText() is called below.
+  // Lets a caller (e.g. stage3.js) react to a *specific* leak actually
+  // showing on frame, since images/text have no native "play" event to
+  // hook the way audio/video do.
+  function runMessageMoment(containerEl, data, onComplete, onLeakShown) {
     if (!containerEl) return;
     containerEl.innerHTML = "";
 
@@ -531,24 +538,28 @@
       if (Array.isArray(response)) {
         // A leak chain is always terminal.
         clearMessageText();
+        if (onLeakShown) onLeakShown(response[0]);
         showLeakChain(response, 0);
         return;
       }
 
       if (response.type === "image") {
         clearMessageText();
+        if (onLeakShown) onLeakShown(response);
         renderZoomingLeakImage(actionEl, response.value, 3500, finishMoment, response.caption);
         return;
       }
 
       if (response.type === "video") {
         clearMessageText();
+        if (onLeakShown) onLeakShown(response);
         playLeakVideo(actionEl, response.value, finishMoment);
         return;
       }
 
       if (response.type === "audio") {
         clearMessageText();
+        if (onLeakShown) onLeakShown(response);
         showAudioResponse(response);
         return;
       }
@@ -558,6 +569,7 @@
       // (same as image/audio/video) when it's the final attempt.
       if (isFinalAttempt) {
         clearMessageText();
+        if (onLeakShown) onLeakShown(response);
       }
 
       var responseText = document.createElement("p");
