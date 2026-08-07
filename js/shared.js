@@ -663,20 +663,26 @@
      finalCta) and once per named moment in stage 4 (one per entry in
      stage4-5.js's NAME_MOMENTS_DATA). Every click of any of those
      occurrences should call STS.callNextInSequence() here, which drives
-     a single shared queue of the 9 tagged field dots (s4_name_01 ..
-     s4_name_09, tagged by field.js's startMemorialReveal()):
+     a single shared queue of 10 tagged field dots — s4_name_01 ..
+     s4_name_09 (tagged by field.js's startMemorialReveal()), then #11780
+     itself as the queue's 10th and final entry:
        - resolves whichever dot was mid-heartbeat from the *previous*
          click (Field.resolveNamedDot — random permanent color, heartbeat
          stopped), if any;
        - then starts Field.s4_heartbeat_anim on the next dot in the queue.
      The very first click (s3_mom_12) has nothing to resolve yet — see
-     callByNameQueueIndex's initial value below. #11780 is a separate dot
-     with its own ready_to_call_status()/doubleEleven780Size() triggers
-     (see stage3.js) and is never part of this queue.
+     callByNameQueueIndex's initial value below. #11780 needs no special-
+     casing here — it's simply the last item in the same ordered list, so
+     the 9th name moment's own click (s4_mom_21) naturally resolves
+     s4_name_09 and starts #11780's heartbeat through this exact same
+     mechanism. (#11780 also has its own separate, unrelated triggers —
+     ready_to_call_status()'s zero-arg call and doubleEleven780Size(), both
+     off frame-side leak-shown events in stage3.js, both already fired
+     long before this queue ever reaches it.)
      ------------------------------------------------------------------ */
   var CALL_BY_NAME_QUEUE = [
     "s4_name_01", "s4_name_02", "s4_name_03", "s4_name_04", "s4_name_05",
-    "s4_name_06", "s4_name_07", "s4_name_08", "s4_name_09"
+    "s4_name_06", "s4_name_07", "s4_name_08", "s4_name_09", "#11780"
   ];
   var callByNameQueueIndex = -1; // index of the dot currently mid-heartbeat, or -1 if none yet
 

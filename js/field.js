@@ -5,14 +5,14 @@
    the core density band, size gradient). Exposed as window.Field with a
    small public API — init/startIdleJitter/startFlow/stopFlow/setZoom/
    animateZoomTo/recoilZoom/startMemorialReveal/stopMemorialReveal/
-   startFleeGroup/ready_to_call_status/doubleEleven780Size/
+   startFleeGroup/ready_to_call_status/doubleEleven780Size/removeEleven780/
    s4_heartbeat_anim/resolveNamedDot/setVisible —
    driven externally by each stage's own timing rather than a fixed
    internal duration. Must load before any stage-N.js file that calls it.
    startIdleJitter/startFlow/stopFlow/setZoom/animateZoomTo/recoilZoom/
    startMemorialReveal/stopMemorialReveal/startFleeGroup/
-   ready_to_call_status/doubleEleven780Size/s4_heartbeat_anim/
-   resolveNamedDot also broadcast over
+   ready_to_call_status/doubleEleven780Size/removeEleven780/
+   s4_heartbeat_anim/resolveNamedDot also broadcast over
    BroadcastChannel (see shared.js) for the frame/field screen split — the
    two-window exhibition deployment, not just a dev convenience; setVisible
    and init stay local to each window.
@@ -1205,16 +1205,27 @@
     renderFrame(lastRenderedNowSec);
   }
 
-  // EXPERIMENTAL — #11780-only interactions, triggered off frame-side
-  // resource-show events (see stage3.js): a plain white 1px stroke (no
-  // blur) when s3_leak_07_img shows (s3_mom_10) marking #11780 as
-  // "ready to call", and doubled size when #11780 itself shows as text
-  // (s3_mom_11). No-ops if #11780 was never tagged (see
-  // startMemorialReveal()) — shouldn't happen in practice, just defensive.
-  function ready_to_call_status() {
-    if (!memorialEleven780Dot) return;
-    memorialEleven780Dot.readyToCallStroke = true;
+  // The "ready to call" marking itself — a plain white 1px stroke, no
+  // blur — generalized to take any dot rather than being hardcoded to
+  // #11780 (see ready_to_call_status()/runHeartbeatOnDot() below, both of
+  // which apply it to their own target dot).
+  function readyToCallStatusOnDot(dot) {
+    if (!dot) return;
+    dot.readyToCallStroke = true;
     renderFrame(lastRenderedNowSec);
+  }
+
+  // EXPERIMENTAL — #11780-only interactions, triggered off frame-side
+  // resource-show events (see stage3.js): the "ready to call" stroke above
+  // when s3_leak_07_img shows (s3_mom_10), and doubled size when #11780
+  // itself shows as text (s3_mom_11). No-ops if #11780 was never tagged
+  // (see startMemorialReveal()) — shouldn't happen in practice, just
+  // defensive. ready_to_call_status() itself stays a public zero-arg call
+  // (stage3.js's own call site is unchanged) — it's just a thin wrapper
+  // around readyToCallStatusOnDot(memorialEleven780Dot) now, the same
+  // helper runHeartbeatOnDot() below calls generically for any dot.
+  function ready_to_call_status() {
+    readyToCallStatusOnDot(memorialEleven780Dot);
   }
 
   function doubleEleven780Size() {
@@ -1223,18 +1234,37 @@
     renderFrame(lastRenderedNowSec);
   }
 
+  // The "read only" skip path (s4_mom_22's alternative CTA, see
+  // stage4-5.js): retires #11780 from the field permanently — same "gone
+  // for good, not coming back" permanence as a fleeing dot, just via a
+  // color change instead of motion, since #11780 never joins a flee group.
+  // Turns solid black (invisible against the canvas's own black
+  // background) and clears its heartbeat/stroke so nothing else touches
+  // it again.
+  function removeEleven780() {
+    if (!memorialEleven780Dot) return;
+    stopHeartbeatOnDot(memorialEleven780Dot);
+    memorialEleven780Dot.readyToCallStroke = false;
+    memorialEleven780Dot.permanentColor = "#000";
+    renderFrame(lastRenderedNowSec);
+  }
+
   /* ------------------------------------------------------------------
      s4_heartbeat_anim — reusable pulse animation, generalized to accept
-     any target dot (by its memorialTagId, e.g. "s4_name_01") rather than
-     being hardcoded to one specific dot. Continuously oscillates that
-     dot's sizeMultiplier between HEARTBEAT_MIN_SCALE (50%) and
-     HEARTBEAT_MAX_SCALE (200%) via its own rAF loop, stored on the dot
-     itself (d.heartbeatRafId) so more than one dot could in principle
-     pulse at once. Runs until resolveNamedDot() (or a fresh
-     s4_heartbeat_anim() call on the same dot) stops it — see the "call
-     next in sequence" queue in shared.js (STS.callNextInSequence), which
-     is what actually drives these two functions from the "Call them by
-     name" CTA.
+     any target dot (by its memorialTagId, e.g. "s4_name_01", or "#11780"
+     — see CALL_BY_NAME_QUEUE in shared.js) rather than being hardcoded to
+     one specific dot. Continuously oscillates that dot's sizeMultiplier
+     between HEARTBEAT_MIN_SCALE (50%) and HEARTBEAT_MAX_SCALE (200%) via
+     its own rAF loop, stored on the dot itself (d.heartbeatRafId) so more
+     than one dot could in principle pulse at once. Also applies the same
+     "ready to call" white-stroke marking #11780 already got on its own
+     (readyToCallStatusOnDot(), see above) to every dot the instant its
+     heartbeat starts — retroactively, this is what makes s4_name_01..09
+     get the stroke too, not just #11780. Runs until resolveNamedDot() (or
+     a fresh s4_heartbeat_anim() call on the same dot) stops it — see the
+     "call next in sequence" queue in shared.js (STS.callNextInSequence),
+     which is what actually drives these two functions from the "Call them
+     by name" CTA.
      ------------------------------------------------------------------ */
   var HEARTBEAT_MIN_SCALE = 0.5;
   var HEARTBEAT_MAX_SCALE = 2.0;
@@ -1256,6 +1286,7 @@
 
   function runHeartbeatOnDot(dot) {
     stopHeartbeatOnDot(dot); // cancel any previous loop already running on this dot
+    readyToCallStatusOnDot(dot); // white 1px stroke — same "ready to call" marking #11780 gets, now generalized to every dot the instant its heartbeat starts
     var startTime = null;
 
     function step(now) {
@@ -1316,6 +1347,7 @@
         case "startFleeGroup": startFleeGroup(msg.args && msg.args[0]); break;
         case "ready_to_call_status": ready_to_call_status(); break;
         case "doubleEleven780Size": doubleEleven780Size(); break;
+        case "removeEleven780": removeEleven780(); break;
         case "s4_heartbeat_anim": s4_heartbeat_anim(msg.args && msg.args[0]); break;
         case "resolveNamedDot": resolveNamedDot(msg.args && msg.args[0]); break;
       }
@@ -1367,6 +1399,10 @@
     doubleEleven780Size: function () {
       doubleEleven780Size();
       broadcastFieldCall("doubleEleven780Size");
+    },
+    removeEleven780: function () {
+      removeEleven780();
+      broadcastFieldCall("removeEleven780");
     },
     s4_heartbeat_anim: function (targetTagId) {
       s4_heartbeat_anim(targetTagId);

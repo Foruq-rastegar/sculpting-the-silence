@@ -219,6 +219,17 @@ html.frame-hidden .frame {
   opacity: 0.7;
 }
 
+/* Alternative/de-emphasized CTA — e.g. s4_mom_22's "Let me just read
+   their stories" beside its primary "Let me give them a name and story".
+   Same shape/border as .button, just visually quieter. */
+.button--secondary {
+  opacity: 0.6;
+}
+
+.button--secondary:active {
+  opacity: 0.4;
+}
+
 /* Stage container: each stage is a full-viewport wrapper holding its own
    background layer + frame. Only one is shown at a time. */
 .stage {
@@ -571,9 +582,10 @@ html.frame-hidden .frame {
   opacity: 1;
 }
 
-/* Pre-transition state for each field/button sliding in below the kept-on-
-   screen s4_mom_22 title+subtext (s4_mom_22 -> s5_mom_23 is one continuous
-   frame now, not a hard cut) — JS adds this then removes it a frame later. */
+/* Pre-transition state for s4_mom_23's fields/button sliding in one after
+   another on their own standalone page (JS adds this then removes it a
+   frame later) — the page transition from s4_mom_22 into s4_mom_23 itself
+   is a hard instant cut, not a fade. */
 .stage-5__field--enter {
   transform: translateY(16px);
   opacity: 0;
@@ -592,6 +604,14 @@ html.frame-hidden .frame {
 .stage-5__submit-action--enter {
   transform: translateY(16px);
   opacity: 0;
+}
+
+/* s4_mom_22's two CTAs (primary + .button--secondary alternative) —
+   stacked instead of .message-moment__action's default single row, so
+   both fit comfortably within .frame's width. */
+.stage-5__choice-action {
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* Pulls the second field up into .message-moment's 28px gap so the two
