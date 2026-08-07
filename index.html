@@ -36,6 +36,22 @@
   <!-- Stage 2: automatic sequence — social feeds video, blackout graph, gunfire warning -->
   <section id="stage-2" class="stage stage-2" data-stage="2">
     <div class="background-layer stage-2__background"></div>
+
+    <!-- Mirrors the load_anim_1/load_anim_2 spinner beats that play in
+         .frame right after the video ends (see stage2.js's
+         playFieldSpinnerSequence) onto the field layer itself, so the
+         field-only dev screen also gets a loading indicator during that
+         pause. Deliberately NOT a ".moment" — it isn't part of the
+         moments[] queue below, and .moment.is-active is toggled wholesale
+         by that queue's own activate(), which would otherwise fight this
+         element's visibility. Always flex-centered; renders nothing when
+         empty and shows the spinner exactly when STS.runSpinner populates
+         it. Sits right after .background-layer so field.js's canvas
+         reparenting (which also inserts immediately after
+         .background-layer) lands *between* the two on first run, giving
+         the stacking order background-layer, canvas, this, .frame. -->
+    <div class="stage-2__moment--field-spinner" id="stage-2-field-spinner"></div>
+
     <div class="frame stage-2__frame">
 
       <div class="moment stage-2__moment stage-2__moment--video is-active" id="stage-2-moment-video" data-moment="1">
