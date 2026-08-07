@@ -656,4 +656,42 @@
       stopLoopingAudio(document.getElementById("stage-3-underscore-audio"));
     }
   };
+
+  /* ------------------------------------------------------------------
+     "Call them by name" queue — the same CTA (label "Call them by name")
+     appears once at the end of stage 3 (s3_mom_12, runNameThemMoment's
+     finalCta) and once per named moment in stage 4 (one per entry in
+     stage4-5.js's NAME_MOMENTS_DATA). Every click of any of those
+     occurrences should call STS.callNextInSequence() here, which drives
+     a single shared queue of the 9 tagged field dots (s4_name_01 ..
+     s4_name_09, tagged by field.js's startMemorialReveal()):
+       - resolves whichever dot was mid-heartbeat from the *previous*
+         click (Field.resolveNamedDot — random permanent color, heartbeat
+         stopped), if any;
+       - then starts Field.s4_heartbeat_anim on the next dot in the queue.
+     The very first click (s3_mom_12) has nothing to resolve yet — see
+     callByNameQueueIndex's initial value below. #11780 is a separate dot
+     with its own ready_to_call_status()/doubleEleven780Size() triggers
+     (see stage3.js) and is never part of this queue.
+     ------------------------------------------------------------------ */
+  var CALL_BY_NAME_QUEUE = [
+    "s4_name_01", "s4_name_02", "s4_name_03", "s4_name_04", "s4_name_05",
+    "s4_name_06", "s4_name_07", "s4_name_08", "s4_name_09"
+  ];
+  var callByNameQueueIndex = -1; // index of the dot currently mid-heartbeat, or -1 if none yet
+
+  function callNextInSequence() {
+    if (!window.Field) return;
+
+    if (callByNameQueueIndex >= 0 && callByNameQueueIndex < CALL_BY_NAME_QUEUE.length) {
+      window.Field.resolveNamedDot(CALL_BY_NAME_QUEUE[callByNameQueueIndex]);
+    }
+
+    callByNameQueueIndex += 1;
+    if (callByNameQueueIndex < CALL_BY_NAME_QUEUE.length) {
+      window.Field.s4_heartbeat_anim(CALL_BY_NAME_QUEUE[callByNameQueueIndex]);
+    }
+  }
+
+  STS.callNextInSequence = callNextInSequence;
 })();

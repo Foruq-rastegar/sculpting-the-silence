@@ -5,12 +5,14 @@
    the core density band, size gradient). Exposed as window.Field with a
    small public API — init/startIdleJitter/startFlow/stopFlow/setZoom/
    animateZoomTo/recoilZoom/startMemorialReveal/stopMemorialReveal/
-   startFleeGroup/addEleven780Stroke/doubleEleven780Size/setVisible —
+   startFleeGroup/ready_to_call_status/doubleEleven780Size/
+   s4_heartbeat_anim/resolveNamedDot/setVisible —
    driven externally by each stage's own timing rather than a fixed
    internal duration. Must load before any stage-N.js file that calls it.
    startIdleJitter/startFlow/stopFlow/setZoom/animateZoomTo/recoilZoom/
    startMemorialReveal/stopMemorialReveal/startFleeGroup/
-   addEleven780Stroke/doubleEleven780Size also broadcast over
+   ready_to_call_status/doubleEleven780Size/s4_heartbeat_anim/
+   resolveNamedDot also broadcast over
    BroadcastChannel (see shared.js) for the frame/field screen split — the
    two-window exhibition deployment, not just a dev convenience; setVisible
    and init stay local to each window.
@@ -72,7 +74,11 @@
   // sweep through that order, not discrete jumps at these points.
   var MEMORIAL_GRAY_STEP_FRACTIONS = [0.03, 0.07, 0.11, 0.16, 0.20];
   var MEMORIAL_ELEVEN_SEVEN_EIGHTY_STEP_INDEX = 2; // #11780 must be positioned at/before the 11% mark (index 2)
-  var MEMORIAL_GRAY_COLOR = "#808080";
+  // EXPERIMENTAL — colour test: was #808080 (achromatic gray); swapped to
+  // red to see how it reads. mixWhiteToMemorialGray() below interpolates
+  // per-channel now (rather than a single shared channel value) so this
+  // still works once the target color is no longer achromatic.
+  var MEMORIAL_GRAY_COLOR_RGB = { r: 255, g: 0, b: 0 };
 
   // Fleeing dots — the reverse of the joining-speed ramp above: starts at
   // MAX_SPEED (the same 5px/sec ceiling stage 2's flow uses) and eases down
@@ -197,12 +203,15 @@
     return c * c * (3 - 2 * c);
   }
 
-  // White -> MEMORIAL_GRAY_COLOR (#808080, achromatic) at a given fraction
-  // (0 = white, 1 = fully gray) — since both endpoints are achromatic, a
-  // single interpolated channel value is reused for r/g/b.
+  // White -> MEMORIAL_GRAY_COLOR_RGB at a given fraction (0 = white, 1 =
+  // fully the target color) — per-channel interpolation, since the target
+  // is no longer guaranteed achromatic (see the color-test comment above).
   function mixWhiteToMemorialGray(fraction) {
-    var channel = Math.round(255 + (0x80 - 255) * clamp01(fraction));
-    return "rgb(" + channel + "," + channel + "," + channel + ")";
+    var f = clamp01(fraction);
+    var r = Math.round(255 + (MEMORIAL_GRAY_COLOR_RGB.r - 255) * f);
+    var g = Math.round(255 + (MEMORIAL_GRAY_COLOR_RGB.g - 255) * f);
+    var b = Math.round(255 + (MEMORIAL_GRAY_COLOR_RGB.b - 255) * f);
+    return "rgb(" + r + "," + g + "," + b + ")";
   }
 
   // x position of the channel at depth t (0 = vanishing point/top, 1 = nearest/bottom).
@@ -447,14 +456,17 @@
         y = d.t * height + jitter(nowSec, d.phaseY, d.freqY);
       }
 
-      // colorMix (0 = white, 1 = fully gray) is the single source of truth
-      // for gray rendering: the original 20% cohort sets it straight to 1
-      // (instant, as before), while leftover-white dots (runLeftoverGrayOut)
-      // ease it up gradually — both paths just read the same value here.
-      ctx.fillStyle = d.colorMix ? mixWhiteToMemorialGray(d.colorMix) : "#fff";
+      // permanentColor (set by resolveNamedDot() once an s4_name_0N dot's
+      // heartbeat is resolved) wins outright; otherwise colorMix (0 = white,
+      // 1 = fully the memorial color) is the source of truth for gray/red
+      // rendering: the original 20% cohort sets it straight to 1 (instant,
+      // as before), while leftover-white dots (runLeftoverGrayOut) ease it
+      // up gradually — both paths just read the same value here.
+      ctx.fillStyle = d.permanentColor ? d.permanentColor : (d.colorMix ? mixWhiteToMemorialGray(d.colorMix) : "#fff");
 
-      // EXPERIMENTAL — #11780-only: doubled radius and/or a blurred red
-      // stroke, see doubleEleven780Size()/addEleven780Stroke().
+      // EXPERIMENTAL — #11780-only doubled radius (doubleEleven780Size()),
+      // and s4_heartbeat_anim()'s own continuous pulse (see below) both
+      // ride the same sizeMultiplier.
       var radius = (sizeAt(d.t) / 2) * (d.sizeMultiplier || 1);
 
       // Dots continue past the bottom edge (passing by, not stopping dead) — no need to
@@ -463,12 +475,13 @@
       ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.fill();
 
-      if (d.hasRedStroke) {
+      // #11780's "ready to call" marking — a plain white 1px stroke, no
+      // blur (see ready_to_call_status() below; an earlier red/blurred
+      // version wasn't good and was replaced with this).
+      if (d.readyToCallStroke) {
         ctx.save();
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 2;
-        ctx.shadowColor = "red";
-        ctx.shadowBlur = 4;
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();
       }
@@ -833,11 +846,12 @@
         untouched throughout (frozen wherever each dot's own flee group had
         gotten to).
 
-     Separately, addEleven780Stroke()/doubleEleven780Size() are one-off,
+     Separately, ready_to_call_status()/doubleEleven780Size() are one-off,
      independent visual tweaks to the cached #11780 dot (memorialEleven780Dot)
-     — a blurred red stroke and a doubled radius respectively — triggered by
-     stage3.js off later frame-side resource-show events (s3_leak_07_img at
-     s3_mom_10, #11780's own text at s3_mom_11), unrelated to whether the
+     — a plain white 1px stroke (no blur) and a doubled radius respectively
+     — triggered by stage3.js off later frame-side resource-show events
+     (s3_leak_07_img at s3_mom_10, #11780's own text at s3_mom_11), unrelated
+     to whether the
      reveal/flee/leftover-gray-out machinery above is still running.
      ------------------------------------------------------------------ */
 
@@ -969,7 +983,7 @@
       eleven780Dot.memorialTagId = "#11780";
       eleven780Dot.memorialStepIndex = MEMORIAL_ELEVEN_SEVEN_EIGHTY_STEP_INDEX;
     }
-    memorialEleven780Dot = eleven780Dot; // cached for addEleven780Stroke()/doubleEleven780Size()
+    memorialEleven780Dot = eleven780Dot; // cached for ready_to_call_status()/doubleEleven780Size()
     for (var i = 0; i < nameDots.length; i++) {
       nameDots[i].memorialTagId = "s4_name_0" + (i + 1);
       nameDots[i].memorialStepIndex = i % MEMORIAL_GRAY_STEP_FRACTIONS.length;
@@ -1209,6 +1223,80 @@
     renderFrame(lastRenderedNowSec);
   }
 
+  /* ------------------------------------------------------------------
+     s4_heartbeat_anim — reusable pulse animation, generalized to accept
+     any target dot (by its memorialTagId, e.g. "s4_name_01") rather than
+     being hardcoded to one specific dot. Continuously oscillates that
+     dot's sizeMultiplier between HEARTBEAT_MIN_SCALE (50%) and
+     HEARTBEAT_MAX_SCALE (200%) via its own rAF loop, stored on the dot
+     itself (d.heartbeatRafId) so more than one dot could in principle
+     pulse at once. Runs until resolveNamedDot() (or a fresh
+     s4_heartbeat_anim() call on the same dot) stops it — see the "call
+     next in sequence" queue in shared.js (STS.callNextInSequence), which
+     is what actually drives these two functions from the "Call them by
+     name" CTA.
+     ------------------------------------------------------------------ */
+  var HEARTBEAT_MIN_SCALE = 0.5;
+  var HEARTBEAT_MAX_SCALE = 2.0;
+  var HEARTBEAT_PERIOD_MS = 1200; // one full pulse cycle
+
+  function findDotByTag(tagId) {
+    for (var i = 0; i < dots.length; i++) {
+      if (dots[i].memorialTagId === tagId) return dots[i];
+    }
+    return null;
+  }
+
+  function stopHeartbeatOnDot(dot) {
+    if (dot && dot.heartbeatRafId !== null && dot.heartbeatRafId !== undefined) {
+      cancelAnimationFrame(dot.heartbeatRafId);
+      dot.heartbeatRafId = null;
+    }
+  }
+
+  function runHeartbeatOnDot(dot) {
+    stopHeartbeatOnDot(dot); // cancel any previous loop already running on this dot
+    var startTime = null;
+
+    function step(now) {
+      if (startTime === null) startTime = now;
+      var phase = ((now - startTime) % HEARTBEAT_PERIOD_MS) / HEARTBEAT_PERIOD_MS; // 0..1
+      var wave = (Math.sin(phase * Math.PI * 2 - Math.PI / 2) + 1) / 2; // 0..1, starts at the trough
+      dot.sizeMultiplier = HEARTBEAT_MIN_SCALE + (HEARTBEAT_MAX_SCALE - HEARTBEAT_MIN_SCALE) * wave;
+      renderFrame(lastRenderedNowSec);
+      dot.heartbeatRafId = requestAnimationFrame(step);
+    }
+
+    dot.heartbeatRafId = requestAnimationFrame(step);
+  }
+
+  function s4_heartbeat_anim(targetTagId) {
+    var dot = findDotByTag(targetTagId);
+    if (!dot) return;
+    runHeartbeatOnDot(dot);
+  }
+
+  // Random permanent color from the same hue-spread/saturation/lightness
+  // family stage4-5.js already uses for the collective board's names —
+  // reads clearly against black without special-casing any one hue.
+  function randomPermanentColor() {
+    var hue = Math.floor(Math.random() * 360);
+    return "hsl(" + hue + ", 70%, 60%)";
+  }
+
+  // Stops targetTagId's heartbeat (if any) and marks it "resolved": a
+  // random permanent color, size back to normal. Called by
+  // STS.callNextInSequence() (shared.js) right before it starts the next
+  // dot's heartbeat.
+  function resolveNamedDot(targetTagId) {
+    var dot = findDotByTag(targetTagId);
+    if (!dot) return;
+    stopHeartbeatOnDot(dot);
+    dot.sizeMultiplier = 1;
+    dot.permanentColor = randomPermanentColor();
+    renderFrame(lastRenderedNowSec);
+  }
+
   if (syncChannel) {
     syncChannel.onmessage = function (event) {
       var msg = event.data;
@@ -1226,8 +1314,10 @@
         case "startMemorialReveal": startMemorialReveal(msg.args && msg.args[0]); break;
         case "stopMemorialReveal": stopMemorialReveal(); break;
         case "startFleeGroup": startFleeGroup(msg.args && msg.args[0]); break;
-        case "addEleven780Stroke": addEleven780Stroke(); break;
+        case "ready_to_call_status": ready_to_call_status(); break;
         case "doubleEleven780Size": doubleEleven780Size(); break;
+        case "s4_heartbeat_anim": s4_heartbeat_anim(msg.args && msg.args[0]); break;
+        case "resolveNamedDot": resolveNamedDot(msg.args && msg.args[0]); break;
       }
     };
   }
@@ -1270,13 +1360,21 @@
       startFleeGroup(groupNumber);
       broadcastFieldCall("startFleeGroup", [groupNumber]);
     },
-    addEleven780Stroke: function () {
-      addEleven780Stroke();
-      broadcastFieldCall("addEleven780Stroke");
+    ready_to_call_status: function () {
+      ready_to_call_status();
+      broadcastFieldCall("ready_to_call_status");
     },
     doubleEleven780Size: function () {
       doubleEleven780Size();
       broadcastFieldCall("doubleEleven780Size");
+    },
+    s4_heartbeat_anim: function (targetTagId) {
+      s4_heartbeat_anim(targetTagId);
+      broadcastFieldCall("s4_heartbeat_anim", [targetTagId]);
+    },
+    resolveNamedDot: function (targetTagId) {
+      resolveNamedDot(targetTagId);
+      broadcastFieldCall("resolveNamedDot", [targetTagId]);
     },
     setVisible: setVisible // local-only (see above), never broadcast
   };

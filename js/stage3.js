@@ -274,6 +274,7 @@
     }
 
     function finish() {
+      STS.callNextInSequence(); // s3_mom_12's "Call them by name" click — starts s4_name_01's heartbeat
       containerEl.innerHTML = ""; // instant, no fade — everything gone
       STS.coverViewportInBlack(1000, onComplete);
     }
@@ -378,7 +379,7 @@
         } else if (response.value.indexOf("s3_leak_03_img") !== -1) {
           window.Field.startFleeGroup(4);
         } else if (response.value.indexOf("s3_leak_07_img") !== -1) {
-          window.Field.addEleven780Stroke();
+          window.Field.ready_to_call_status();
         } else if (response.value === "#11780") {
           window.Field.doubleEleven780Size();
         }

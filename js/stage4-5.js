@@ -75,6 +75,7 @@
       button.className = "button message-moment__button";
       button.textContent = "Call them by name";
       STS.bindTapAndClick(button, function () {
+        STS.callNextInSequence(); // resolves this moment's dot, starts the next one's heartbeat
         containerEl.innerHTML = ""; // instant, no fade
         onComplete();
       });
