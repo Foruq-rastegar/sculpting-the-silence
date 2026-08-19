@@ -1,0 +1,11 @@
+# start-mac.command's shebang (#!/bin/bash) breaks if checked out with
+# CRLF line endings (bash reads "/bin/bash\r" as the interpreter path and
+# fails) -- force LF regardless of core.autocrlf, since this repo is
+# developed on Windows but the file must run correctly on macOS.
+start-mac.command text eol=lf
+
+# Pinned to CRLF explicitly (rather than relying on whatever core.autocrlf
+# happens to be set on whichever machine clones/edits this repo) since
+# these are Windows-only launcher files.
+start-windows.bat text eol=crlf
+run-server.ps1 text eol=crlf
