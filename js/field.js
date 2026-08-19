@@ -2,17 +2,26 @@
    Sculpting the Silence — background point field
    Ported from prototypes/field-default.html (perspective, the curved
    "channel", the three dot populations, density-based speed, path wobble,
-   the core density band, size gradient). Exposed as window.Field with a
-   small public API — init/startIdleJitter/startFlow/stopFlow/setZoom/
-   animateZoomTo/recoilZoom/startMemorialReveal/stopMemorialReveal/
-   startFleeGroup/ready_to_call_status/doubleEleven780Size/removeEleven780/
-   s4_heartbeat_anim/resolveNamedDot/setVisible —
-   driven externally by each stage's own timing rather than a fixed
-   internal duration. Must load before any stage-N.js file that calls it.
-   startIdleJitter/startFlow/stopFlow/setZoom/animateZoomTo/recoilZoom/
-   startMemorialReveal/stopMemorialReveal/startFleeGroup/
-   ready_to_call_status/doubleEleven780Size/removeEleven780/
-   s4_heartbeat_anim/resolveNamedDot also broadcast over
+   the core density band, size gradient). Exposed as window.Field, grouped
+   roughly by what it drives:
+     - channel scene: init/startIdleJitter/startFlow/stopFlow/setZoom/
+       animateZoomTo/recoilZoom/resetZoom/setVisible
+     - stage-3 memorial reveal: startMemorialReveal/stopMemorialReveal/
+       startFleeGroup
+     - #11780/named-dot interactions: ready_to_call_status/
+       doubleEleven780Size/removeEleven780/s4_heartbeat_anim/
+       resolveNamedDot/getResolvedColor/showNameTooltip/hideNameTooltip
+     - shared final scene (js/final-scene.js): startFinalScene/
+       setFinalSceneAssignments/showFinalSceneTooltip/
+       hideFinalSceneTooltip/focusFinalSceneOnly/revealFinalScene/
+       setFinalScenePersistentLabel/clearFinalScenePersistentLabel/
+       setFinalSceneTargetHighlight/clearFinalSceneTargetHighlight/
+       startFinalSceneAnimation
+   Driven externally by each stage's own timing rather than a fixed
+   internal duration. Must load after js/final-scene.js (window.FinalScene,
+   the shared final-scene dot pattern/renderer) and before any stage-N.js
+   file that calls it. Every method above except init/setVisible also
+   broadcasts over
    BroadcastChannel (see shared.js) for the frame/field screen split — the
    two-window exhibition deployment, not just a dev convenience; setVisible
    and init stay local to each window.
@@ -66,7 +75,7 @@
 
   // Stage 3 memorial reveal (s3_mom_05 through s3_mom_10) — see
   // startMemorialReveal()/stopMemorialReveal() below for the full behavior.
-  var MEMORIAL_EDGE_MARGIN_FRACTION = 0.3;  // tagging eligibility excludes this fraction from each edge
+  var MEMORIAL_EDGE_MARGIN_FRACTION = 0.3;  // tagging eligibility excludes this fraction from each edge — already exceeds item 2 (round 7)'s "at least 20% from the field's own edges" minimum, unchanged
   var MEMORIAL_GRAY_TOTAL_FRACTION = 0.2;   // 20% of all visible dots end up gray
   // Cumulative-fraction checkpoints used only to place dots within the
   // ordered reveal sequence (index i corresponds to reaching this fraction
@@ -111,9 +120,14 @@
   // gradual (not instant) fade to gray after its own delay, all finished
   // no later than MEMORIAL_LEFTOVER_TOTAL_DURATION_SEC after stop. Shares
   // of the leftover pool, not cumulative — see runLeftoverGrayOut() below.
+  // Total duration was 8s (delays [0, 3, 5]) — stretched to 20s, delays
+  // scaled by the same 2.5x (20/8) so the 30%/40%/30% group split and each
+  // group's own relative pacing (delay vs. its own transition length,
+  // durationSec = total - delay in runLeftoverGrayOut) stay identical,
+  // just slower throughout.
   var MEMORIAL_LEFTOVER_GROUP_FRACTIONS = [0.3, 0.4, 0.3];
-  var MEMORIAL_LEFTOVER_GROUP_DELAYS_SEC = [0, 3, 5];
-  var MEMORIAL_LEFTOVER_TOTAL_DURATION_SEC = 8;
+  var MEMORIAL_LEFTOVER_GROUP_DELAYS_SEC = [0, 7.5, 12.5];
+  var MEMORIAL_LEFTOVER_TOTAL_DURATION_SEC = 20;
 
   var JITTER_AMOUNT = 1.4;              // px, idle wobble amplitude
   var JITTER_SPEED = 1.0;               // idle wobble oscillation speed multiplier
@@ -416,6 +430,46 @@
     return JITTER_AMOUNT * Math.sin(nowSec * JITTER_SPEED * freq + phase);
   }
 
+  // Un-transformed (pre-zoom) canvas-space position of a dot at the given
+  // point in time — factored out of renderFrame's per-dot loop so
+  // drawActiveNameTooltip() (see below) can place text at the exact same
+  // spot a dot itself is drawn at, without duplicating this branching.
+  function dotPosition(d, nowSec) {
+    if (d.isFleeing) {
+      // Driven entirely by this dot's own flee group's shared
+      // distanceTraveled (see startFleeGroup()), not the channel model —
+      // no jitter/wobble, a straight line away from the field's center.
+      var fleeGroup = memorialFleeGroups[d.fleeGroup - 1];
+      return {
+        x: d.fleeStartX + d.fleeDirX * fleeGroup.distanceTraveled,
+        y: d.fleeStartY + d.fleeDirY * fleeGroup.distanceTraveled
+      };
+    }
+    if (d.isMemorial) {
+      // Frozen the instant the memorial reveal started (updateDots skips
+      // these, so t/offset never change) — no jitter/wobble, "stays in
+      // place" as specified.
+      return { x: channelXAt(d.t) + d.offset, y: d.t * height };
+    }
+    return {
+      x: channelXAt(d.t) + d.offset + wobbleAt(d) + jitter(nowSec, d.phaseX, d.freqX),
+      y: d.t * height + jitter(nowSec, d.phaseY, d.freqY)
+    };
+  }
+
+  // Same screen-space formula the zoom transform itself applies (see the
+  // ctx.setTransform call in renderFrame) — used to place the name-tooltip
+  // text at a dot's real on-screen position while drawing it with the
+  // transform reset to identity (see drawActiveNameTooltip()), so the text
+  // stays a constant screen size regardless of zoom instead of scaling
+  // with it.
+  function canvasToScreen(x, y) {
+    return {
+      x: zoomPivotX * (1 - zoomScale) + x * zoomScale,
+      y: zoomPivotY * (1 - zoomScale) + y * zoomScale
+    };
+  }
+
   function renderFrame(nowSec) {
     if (!ctx) return;
     lastRenderedNowSec = nowSec;
@@ -437,24 +491,8 @@
       var d = dots[i];
       if (!d.alwaysVisible && elapsedSec < d.entryTimeSec) continue;
 
-      var x, y;
-      if (d.isFleeing) {
-        // Driven entirely by this dot's own flee group's shared
-        // distanceTraveled (see startFleeGroup()), not the channel model —
-        // no jitter/wobble, a straight line away from the field's center.
-        var fleeGroup = memorialFleeGroups[d.fleeGroup - 1];
-        x = d.fleeStartX + d.fleeDirX * fleeGroup.distanceTraveled;
-        y = d.fleeStartY + d.fleeDirY * fleeGroup.distanceTraveled;
-      } else if (d.isMemorial) {
-        // Frozen the instant the memorial reveal started (updateDots skips
-        // these, so t/offset never change) — no jitter/wobble, "stays in
-        // place" as specified.
-        x = channelXAt(d.t) + d.offset;
-        y = d.t * height;
-      } else {
-        x = channelXAt(d.t) + d.offset + wobbleAt(d) + jitter(nowSec, d.phaseX, d.freqX);
-        y = d.t * height + jitter(nowSec, d.phaseY, d.freqY);
-      }
+      var pos = dotPosition(d, nowSec);
+      var x = pos.x, y = pos.y;
 
       // permanentColor (set by resolveNamedDot() once an s4_name_0N dot's
       // heartbeat is resolved) wins outright; otherwise colorMix (0 = white,
@@ -486,6 +524,8 @@
         ctx.restore();
       }
     }
+
+    drawActiveNameTooltip(nowSec);
   }
 
   function tick(now) {
@@ -795,6 +835,77 @@
     }, ZOOM_RECOIL_DELAY_MS);
   }
 
+  // EXPERIMENTAL, may be reverted — test alternative to recoilZoom() above
+  // (left fully intact, just unused while this is active): rather than
+  // holding at rest and then snapping, resetZoom() actively continues the
+  // zoom-in through the window before the snap — a faster, further push
+  // past stage2.js's STAGE2_FIELD_ZOOM buildup target, sustained for
+  // ZOOM_RESET_PUSH_DURATION_MS (building more tension right as the
+  // gunshot fires) — then snaps back down to a fixed 1.0 (no zoom at all)
+  // over the short ZOOM_RESET_SNAP_DURATION_MS that follows, using the
+  // same easeOutQuart punch curve as recoilZoom. Sequence: trigger -> 0.6s
+  // continued push-in -> 0.15s sharp snap to 1x. Call directly off the
+  // same real event recoilZoom used to be triggered from (s3_gunshot_snd's
+  // "play" event in stage3.js).
+  var ZOOM_RESET_PUSH_SCALE = 1.6;       // further zoom-in target during the push, beyond stage2.js's STAGE2_FIELD_ZOOM buildup
+  var ZOOM_RESET_PUSH_DURATION_MS = 600; // 0.6s continued push-in, faster than phase 1's buildup
+  var ZOOM_RESET_SNAP_DURATION_MS = 150; // 0.15s sharp snap back to 1x
+
+  function runZoomResetSnap() {
+    var startScale = zoomScale;
+    var startTime = null;
+
+    function step(now) {
+      if (startTime === null) startTime = now;
+      var t = Math.min((now - startTime) / ZOOM_RESET_SNAP_DURATION_MS, 1);
+      zoomScale = startScale + (1 - startScale) * easeOutQuart(t);
+      renderFrame(lastRenderedNowSec);
+
+      if (t < 1) {
+        zoomAnimId = requestAnimationFrame(step);
+      } else {
+        zoomScale = 1; // exact settle, no residual floating-point drift
+        renderFrame(lastRenderedNowSec);
+        zoomAnimId = null;
+      }
+    }
+
+    zoomAnimId = requestAnimationFrame(step);
+  }
+
+  // Linear — a faster, steady continued push-in, distinct from phase 1's
+  // ease-in-then-linear buildup — straight into runZoomResetSnap() the
+  // instant it reaches ZOOM_RESET_PUSH_SCALE.
+  function runZoomResetPush() {
+    var startScale = zoomScale;
+    var startTime = null;
+
+    function step(now) {
+      if (startTime === null) startTime = now;
+      var t = Math.min((now - startTime) / ZOOM_RESET_PUSH_DURATION_MS, 1);
+      zoomScale = startScale + (ZOOM_RESET_PUSH_SCALE - startScale) * t;
+      renderFrame(lastRenderedNowSec);
+
+      if (t < 1) {
+        zoomAnimId = requestAnimationFrame(step);
+      } else {
+        zoomScale = ZOOM_RESET_PUSH_SCALE;
+        renderFrame(lastRenderedNowSec);
+        runZoomResetSnap();
+      }
+    }
+
+    zoomAnimId = requestAnimationFrame(step);
+  }
+
+  function resetZoom() {
+    if (!canvas) return;
+    cancelZoomAnimation();
+    zoomPivotX = channelXAt(0.5);
+    zoomPivotY = height * 0.5;
+    runZoomResetPush();
+  }
+
   /* ------------------------------------------------------------------
      Stage 3 memorial reveal (s3_mom_05 through s3_mom_10) — two parallel
      behaviors, both started by startMemorialReveal() and both guaranteed
@@ -809,8 +920,10 @@
         STOP duration (estimatedDurationMs is a pacing guess only — the
         real "play" to "pause" gap is user-paced and can't be known in
         advance). 10 specific dots are tagged as part of that 20%: the most
-        central on-screen dot as "#11780", plus 9 more central dots as
-        "s4_name_01".."s4_name_09". Dots are revealed in a precomputed
+        central on-screen dot (excluding any candidate the active .frame's
+        own content would cover — see frameOccupiesScreenPos(), item 5) as
+        "#11780", plus 9 more central dots as "s4_name_01".."s4_name_09".
+        Dots are revealed in a precomputed
         order built from 5 cumulative-fraction checkpoints
         (MEMORIAL_GRAY_STEP_FRACTIONS) — #11780 is positioned at the 11%
         checkpoint, the other 9 spread round-robin across all 5 — so they
@@ -846,13 +959,14 @@
         untouched throughout (frozen wherever each dot's own flee group had
         gotten to).
 
-     Separately, ready_to_call_status()/doubleEleven780Size() are one-off,
-     independent visual tweaks to the cached #11780 dot (memorialEleven780Dot)
-     — a plain white 1px stroke (no blur) and a doubled radius respectively
-     — triggered by stage3.js off later frame-side resource-show events
-     (s3_leak_07_img at s3_mom_10, #11780's own text at s3_mom_11), unrelated
-     to whether the
-     reveal/flee/leftover-gray-out machinery above is still running.
+     Separately, ready_to_call_status()/doubleEleven780Size() (plus
+     s4_heartbeat_anim(), see further below) are one-off, independent
+     visual tweaks to the cached #11780 dot (memorialEleven780Dot) — a
+     plain white 1px stroke (no blur), a doubled radius, and a continuous
+     pulse respectively — all three triggered together by stage3.js off
+     #11780's own text showing as a frame-side resource (s3_mom_11),
+     unrelated to whether the reveal/flee/leftover-gray-out machinery
+     above is still running.
      ------------------------------------------------------------------ */
 
   function isVisibleDot(d) {
@@ -934,6 +1048,42 @@
     memorialAnimId = requestAnimationFrame(step);
   }
 
+  // Item 5 (bug-fix round 2) — general placement rule: no tagged dot
+  // (#11780 or s4_name_01..09) may land underneath the active stage's
+  // .frame content. .frame's own background is transparent — only its
+  // inner .moment-content-box (per-moment, opaque) actually occludes
+  // anything — but tagged dots freeze in place at tag time and then stay
+  // frozen through every later stage-3/4 moment's own differently-sized
+  // content-box, so this checks against .frame's own full bounding rect
+  // (a stable superset of wherever any moment's content-box could ever
+  // render within it) rather than the live content-box, which would only
+  // be correct for whichever one moment happens to be on screen right
+  // now. Screen-space (getBoundingClientRect(), real on-screen pixels),
+  // compared against a dot's actual on-screen position AFTER the current
+  // camera zoom (canvasToScreen()) — .frame is a plain DOM element, never
+  // transformed by the canvas's own zoom, so comparing anything else
+  // (e.g. raw untransformed canvas coordinates) would drift out of sync
+  // with reality the moment zoomScale != 1.
+  //
+  // Bug fix (round 7, item 2) — the rect itself used to be the exact
+  // exclusion zone, with no buffer, so a tagged dot could still land
+  // immediately adjacent to .frame's edge and read as visually "stuck
+  // to"/half-hidden-by it. Now padded out by FRAME_EXCLUSION_MARGIN_-
+  // FRACTION (20%) of .frame's own width on every side before the
+  // containment check, so a tagged dot always keeps at least that much
+  // daylight around the frame, not just outside its literal box.
+  var FRAME_EXCLUSION_MARGIN_FRACTION = 0.2;
+
+  function frameOccupiesScreenPos(screenX, screenY) {
+    var frameEl = document.querySelector(".stage.is-active .frame");
+    if (!frameEl) return false;
+    var rect = frameEl.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false; // hidden (e.g. the field-only screen mode)
+    var margin = rect.width * FRAME_EXCLUSION_MARGIN_FRACTION;
+    return screenX >= rect.left - margin && screenX <= rect.right + margin &&
+      screenY >= rect.top - margin && screenY <= rect.bottom + margin;
+  }
+
   // estimatedDurationMs: a pacing estimate for the smooth gray-out sweep
   // only (see stage3.js) — stopMemorialReveal() is the authoritative end,
   // called directly off the real stop event, not derived from this.
@@ -950,15 +1100,17 @@
     }
 
     // -- Setup: tag 10 specific dots, all from the central 40% (excluding
-    // MEMORIAL_EDGE_MARGIN_FRACTION from every edge) --
+    // MEMORIAL_EDGE_MARGIN_FRACTION from every edge) and never one the
+    // active .frame's content would cover (item 5) --
     var marginX = width * MEMORIAL_EDGE_MARGIN_FRACTION;
     var marginY = height * MEMORIAL_EDGE_MARGIN_FRACTION;
     var centralCandidates = [];
     for (var i = 0; i < visibleDots.length; i++) {
       var pos = baseDotPosition(visibleDots[i]);
-      if (pos.x >= marginX && pos.x <= width - marginX && pos.y >= marginY && pos.y <= height - marginY) {
-        centralCandidates.push(visibleDots[i]);
-      }
+      if (pos.x < marginX || pos.x > width - marginX || pos.y < marginY || pos.y > height - marginY) continue;
+      var screenPos = canvasToScreen(pos.x, pos.y);
+      if (frameOccupiesScreenPos(screenPos.x, screenPos.y)) continue;
+      centralCandidates.push(visibleDots[i]);
     }
 
     var eleven780Dot = null;
@@ -1217,9 +1369,10 @@
 
   // EXPERIMENTAL — #11780-only interactions, triggered off frame-side
   // resource-show events (see stage3.js): the "ready to call" stroke above
-  // when s3_leak_07_img shows (s3_mom_10), and doubled size when #11780
-  // itself shows as text (s3_mom_11). No-ops if #11780 was never tagged
-  // (see startMemorialReveal()) — shouldn't happen in practice, just
+  // and doubled size, both when #11780 itself shows as text (s3_mom_11) —
+  // alongside s4_heartbeat_anim("#11780"), also triggered there (see
+  // further below). No-ops if #11780 was never tagged (see
+  // startMemorialReveal()) — shouldn't happen in practice, just
   // defensive. ready_to_call_status() itself stays a public zero-arg call
   // (stage3.js's own call site is unchanged) — it's just a thin wrapper
   // around readyToCallStatusOnDot(memorialEleven780Dot) now, the same
@@ -1307,25 +1460,276 @@
     runHeartbeatOnDot(dot);
   }
 
-  // Random permanent color from the same hue-spread/saturation/lightness
-  // family stage4-5.js already uses for the collective board's names —
-  // reads clearly against black without special-casing any one hue.
+  // Fallback only now (see NAMED_DOT_FIXED_COLORS below) — kept for any
+  // tag that isn't one of the 10 known ones, so resolveNamedDot() never
+  // has to no-op on a missing color.
   function randomPermanentColor() {
     var hue = Math.floor(Math.random() * 360);
     return "hsl(" + hue + ", 70%, 60%)";
   }
 
-  // Stops targetTagId's heartbeat (if any) and marks it "resolved": a
-  // random permanent color, size back to normal. Called by
+  // Explicit, fixed colors for the 10 dots that resolve before stage 5
+  // (s4_name_01..09 and #11780) — 10 hues spread evenly around the wheel
+  // (36 degrees apart) at a consistently high saturation/lightness so none
+  // of them drift into brown, gray, or any other desaturated/grayscale
+  // tone (those ranges are reserved for unresolved/anonymous dots — see
+  // final-scene.js's GRAY_DOT_COLOR and stage4-5.js's
+  // COLLECTIVE_BOARD_ANONYMOUS_COLOR). Same hsl() family randomPermanentColor()
+  // already used, just fixed values instead of a random pick, so every
+  // run reliably gives each of these 10 a strongly distinct, non-random
+  // color from a curated palette rather than an occasional near-duplicate
+  // or muddy hue.
+  var NAMED_DOT_FIXED_COLORS = {
+    "s4_name_01": "hsl(0, 80%, 55%)",   // red
+    "s4_name_02": "hsl(36, 80%, 55%)",  // orange
+    "s4_name_03": "hsl(72, 80%, 55%)",  // yellow-green
+    "s4_name_04": "hsl(108, 80%, 55%)", // green
+    "s4_name_05": "hsl(144, 80%, 55%)", // green-cyan
+    "s4_name_06": "hsl(180, 80%, 55%)", // cyan
+    "s4_name_07": "hsl(216, 80%, 55%)", // blue
+    "s4_name_08": "hsl(252, 80%, 55%)", // blue-violet
+    "s4_name_09": "hsl(288, 80%, 55%)", // violet
+    "#11780": "hsl(324, 80%, 55%)"      // magenta
+  };
+
+  // Stops targetTagId's heartbeat (if any) and marks it "resolved": one of
+  // the 10 fixed colors above (or a random fallback for any other tag),
+  // permanently 2x size (not just the heartbeat's own 50%-200% pulse —
+  // this is its lasting resolved state, so resolved dots stay visibly
+  // larger even once the pulse itself has stopped). Called by
   // STS.callNextInSequence() (shared.js) right before it starts the next
-  // dot's heartbeat.
+  // dot's heartbeat. This is the single place a resolved dot's color is
+  // decided — stage4-5.js's addEntry() reads it back afterward via
+  // getResolvedColor() rather than picking its own, so a board entry's
+  // stored color always matches its dot exactly (see the doc comment on
+  // getResolvedColor() below for why that matters).
   function resolveNamedDot(targetTagId) {
     var dot = findDotByTag(targetTagId);
     if (!dot) return;
     stopHeartbeatOnDot(dot);
-    dot.sizeMultiplier = 1;
-    dot.permanentColor = randomPermanentColor();
+    dot.sizeMultiplier = 2;
+    dot.permanentColor = NAMED_DOT_FIXED_COLORS[targetTagId] || randomPermanentColor();
     renderFrame(lastRenderedNowSec);
+  }
+
+  // Query-only, never broadcast (see broadcastFieldCall's doc comment —
+  // only state-mutating calls need to be mirrored to the other window).
+  // Lets a caller (stage4-5.js's addEntry()) read back whatever color
+  // resolveNamedDot() already picked for a dot, instead of independently
+  // randomizing a second, different color of its own — the bug this
+  // fixes: a board entry's stored `color` and its linked dot's actual
+  // on-field color used to be two unrelated random values that never
+  // matched. Returns null if the dot isn't tagged or hasn't been resolved
+  // yet (no permanentColor set).
+  function getResolvedColor(targetTagId) {
+    var dot = findDotByTag(targetTagId);
+    return (dot && dot.permanentColor) ? dot.permanentColor : null;
+  }
+
+  /* ------------------------------------------------------------------
+     Name tooltip — a continuous hover/enter-leave state (unlike every
+     other dot interaction above, which is a one-shot click), showing a
+     board entry's name+story as text on the field near its linked dot.
+     Driven by stage4-5.js's collective board: mouseenter/tap calls
+     showNameTooltip(dotId, name, story), mouseleave/tap-elsewhere calls
+     hideNameTooltip(dotId). Also reused, on a timer instead of a real
+     hover, for the "auto-reveal on submit" beat (see stage4-5.js).
+
+     Deliberately last-write-wins rather than requiring perfectly paired
+     show/hide calls: activeTooltipDotId is the single source of truth for
+     "what's currently shown" — a new showNameTooltip() call always just
+     switches to it (no need to hide the previous one first), and
+     hideNameTooltip(dotId) only clears the tooltip if dotId is still the
+     active one, so a stale/late hide (e.g. arriving after a newer show,
+     plausible given real-world latency once this is broadcast across the
+     two-window exhibition split) can't clobber whatever's showing now.
+     Only one tooltip is ever shown at a time — true of both a mouse (one
+     hover at a time) and touch (one tap at a time), so no need to track
+     more than one.
+     ------------------------------------------------------------------ */
+  var activeTooltipDot = null;   // cached dot reference, avoids a findDotByTag() scan every render frame
+  var activeTooltipDotId = null; // the tag id currently shown — hideNameTooltip's last-write-wins key
+  var activeTooltipText = null;  // { name, story }
+
+  function showNameTooltip(dotId, name, story) {
+    var dot = findDotByTag(dotId);
+    if (!dot) return;
+    activeTooltipDot = dot;
+    activeTooltipDotId = dotId;
+    activeTooltipText = { name: name, story: story };
+    renderFrame(lastRenderedNowSec);
+  }
+
+  function hideNameTooltip(dotId) {
+    if (activeTooltipDotId !== dotId) return; // stale/superseded call — no-op, see doc comment above
+    activeTooltipDot = null;
+    activeTooltipDotId = null;
+    activeTooltipText = null;
+    renderFrame(lastRenderedNowSec);
+  }
+
+  var TOOLTIP_FONT_FAMILY = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"; // matches css/global.css's --font-family
+  var TOOLTIP_LINE_HEIGHT_PX = 16;
+  var TOOLTIP_MAX_WIDTH_PX = 220;   // story text wraps within this width
+  var TOOLTIP_OFFSET_Y_PX = 18;     // below the dot, in screen (not canvas/zoom) space
+
+  // Greedy word-wrap into lines no wider than maxWidth, measured with
+  // ctx's currently-set font — canvas has no native text-wrapping, so this
+  // is done by hand rather than pulling in a DOM element for it (see the
+  // "why canvas text, not a DOM overlay" reasoning below).
+  function wrapTextLines(measureCtx, text, maxWidth) {
+    var words = text.split(" ");
+    var lines = [];
+    var current = "";
+    for (var i = 0; i < words.length; i++) {
+      var attempt = current ? current + " " + words[i] : words[i];
+      if (current && measureCtx.measureText(attempt).width > maxWidth) {
+        lines.push(current);
+        current = words[i];
+      } else {
+        current = attempt;
+      }
+    }
+    if (current) lines.push(current);
+    return lines;
+  }
+
+  // Drawn as plain canvas text (ctx.fillText), not a DOM overlay — a DOM
+  // tooltip positioned over a dot would need to re-derive the exact same
+  // zoom-transform math canvasToScreen() already encapsulates in a second
+  // place (CSS/JS instead of canvas), and keep it in sync with any future
+  // change to the zoom system; staying inside the canvas keeps there being
+  // only one place that ever computes a dot's on-screen position. The
+  // transform is reset to identity for the text draw only, so it reads at
+  // a constant screen size regardless of the field's current zoom level —
+  // dots (drawn earlier in renderFrame, under the zoomed transform) still
+  // scale with zoom as normal; only this text opts out.
+  function drawActiveNameTooltip(nowSec) {
+    if (!activeTooltipDot || !activeTooltipText) return;
+
+    var canvasPos = dotPosition(activeTooltipDot, nowSec);
+    var screenPos = canvasToScreen(canvasPos.x, canvasPos.y);
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#fff";
+
+    var y = screenPos.y + TOOLTIP_OFFSET_Y_PX;
+
+    ctx.font = "bold 12px " + TOOLTIP_FONT_FAMILY;
+    if (activeTooltipText.name) {
+      ctx.fillText(activeTooltipText.name, screenPos.x, y);
+      y += TOOLTIP_LINE_HEIGHT_PX;
+    }
+
+    if (activeTooltipText.story) {
+      ctx.font = "12px " + TOOLTIP_FONT_FAMILY;
+      var storyLines = wrapTextLines(ctx, activeTooltipText.story, TOOLTIP_MAX_WIDTH_PX);
+      for (var i = 0; i < storyLines.length; i++) {
+        ctx.fillText(storyLines[i], screenPos.x, y);
+        y += TOOLTIP_LINE_HEIGHT_PX;
+      }
+    }
+
+    ctx.restore();
+  }
+
+  /* ------------------------------------------------------------------
+     Shared final scene (js/final-scene.js) — takes over #field-canvas
+     entirely once started: stopLoop() below halts the channel scene's own
+     rAF loop for good (this is a one-way switch, not toggled back), and
+     window.FinalScene's own renderer instance runs its own independent
+     loop against the same canvas element from then on. field.js stays
+     storage-ignorant here too, same as the rest of this file — every call
+     below receives its data (assignments, or a specific dot's color/
+     name/story) from its caller (stage4-5.js, which owns the entries
+     registry) rather than reading localStorage itself.
+
+     Sound (playNoteTone) is gated on STS.screenMode !== "field" — audio
+     (including headphones) only ever plays on the frame side, since that's
+     the only window with real user input; field is a passive visual mirror
+     and must stay silent. This works regardless of whether a call is local
+     (this window is the one driving stage logic) or arrived over the
+     two-window BroadcastChannel sync (see the wrappers below): either way,
+     the function actually executes inside THIS window's own JS context, so
+     checking THIS window's own screenMode is exactly the right gate — a
+     field-mode window suppresses its own sound whether the call originated
+     locally or was relayed in from the other window.
+     ------------------------------------------------------------------ */
+  var finalSceneRenderer = null;
+
+  function startFinalScene(assignments) {
+    if (!canvas || !window.FinalScene) return;
+    stopLoop(); // one-way handoff — the channel scene never resumes on this canvas
+    if (!finalSceneRenderer) {
+      finalSceneRenderer = window.FinalScene.createRenderer(canvas);
+      finalSceneRenderer.init();
+    }
+    finalSceneRenderer.setAssignments(assignments);
+  }
+
+  function setFinalSceneAssignments(assignments) {
+    if (finalSceneRenderer) finalSceneRenderer.setAssignments(assignments);
+  }
+
+  // Bug fix (round 2, item 1) — the heartbeat pulse stays frozen until
+  // this is called (see final-scene.js's animationsActive doc comment).
+  function startFinalSceneAnimation() {
+    if (finalSceneRenderer) finalSceneRenderer.startAnimating();
+  }
+
+  function maybePlayFinalSceneNote(noteFrequency) {
+    if (noteFrequency && window.FinalScene && window.STS && window.STS.screenMode !== "field") {
+      window.FinalScene.playNoteTone(noteFrequency);
+    }
+  }
+
+  function showFinalSceneTooltip(dotIndex, name, story, noteFrequency) {
+    if (finalSceneRenderer) finalSceneRenderer.showTooltip(dotIndex, name, story);
+    maybePlayFinalSceneNote(noteFrequency);
+  }
+
+  function hideFinalSceneTooltip(dotIndex) {
+    if (finalSceneRenderer) finalSceneRenderer.hideTooltip(dotIndex);
+  }
+
+  // Entry-path-specific intro (see stage4-5.js): shows only this one dot,
+  // highlighted, before revealFinalScene() below brings in the rest.
+  // noteFrequency is optional — passed for the form-submit path (plays,
+  // subject to the same screenMode gate above), omitted for the anonymous
+  // path (that entry's own stored note is already null, so callers can
+  // just pass it through unconditionally either way).
+  function focusFinalSceneOnly(dotIndex, color, name, story, noteFrequency) {
+    if (finalSceneRenderer) finalSceneRenderer.focusOnly(dotIndex, color, name, story);
+    maybePlayFinalSceneNote(noteFrequency);
+  }
+
+  function revealFinalScene() {
+    if (finalSceneRenderer) finalSceneRenderer.revealAll();
+  }
+
+  // EXPERIMENTAL, item 1 — the visitor's own just-submitted dot keeps its
+  // name showing with no hover needed, for the rest of the current run
+  // (cleared on the next page load, along with everything else — see
+  // shared.js's triggerNextRunReset()). Easy to stop using: stage4-5.js
+  // simply never calls setFinalScenePersistentLabel.
+  function setFinalScenePersistentLabel(dotIndex, name) {
+    if (finalSceneRenderer) finalSceneRenderer.setPersistentLabel(dotIndex, name);
+  }
+
+  function clearFinalScenePersistentLabel() {
+    if (finalSceneRenderer) finalSceneRenderer.clearPersistentLabel();
+  }
+
+  // Item 3c — in-place highlight (no camera zoom, this scene has none) for
+  // the fixed "#11780 placeholder" dot while its popup form is open.
+  function setFinalSceneTargetHighlight(dotIndex) {
+    if (finalSceneRenderer) finalSceneRenderer.setTargetHighlight(dotIndex);
+  }
+
+  function clearFinalSceneTargetHighlight() {
+    if (finalSceneRenderer) finalSceneRenderer.clearTargetHighlight();
   }
 
   if (syncChannel) {
@@ -1342,6 +1746,7 @@
         case "setZoom": setZoom(msg.args && msg.args[0]); break;
         case "animateZoomTo": animateZoomTo(msg.args && msg.args[0], msg.args && msg.args[1]); break;
         case "recoilZoom": recoilZoom(); break;
+        case "resetZoom": resetZoom(); break;
         case "startMemorialReveal": startMemorialReveal(msg.args && msg.args[0]); break;
         case "stopMemorialReveal": stopMemorialReveal(); break;
         case "startFleeGroup": startFleeGroup(msg.args && msg.args[0]); break;
@@ -1350,6 +1755,19 @@
         case "removeEleven780": removeEleven780(); break;
         case "s4_heartbeat_anim": s4_heartbeat_anim(msg.args && msg.args[0]); break;
         case "resolveNamedDot": resolveNamedDot(msg.args && msg.args[0]); break;
+        case "showNameTooltip": showNameTooltip(msg.args && msg.args[0], msg.args && msg.args[1], msg.args && msg.args[2]); break;
+        case "hideNameTooltip": hideNameTooltip(msg.args && msg.args[0]); break;
+        case "startFinalScene": startFinalScene(msg.args && msg.args[0]); break;
+        case "setFinalSceneAssignments": setFinalSceneAssignments(msg.args && msg.args[0]); break;
+        case "showFinalSceneTooltip": showFinalSceneTooltip(msg.args && msg.args[0], msg.args && msg.args[1], msg.args && msg.args[2], msg.args && msg.args[3]); break;
+        case "hideFinalSceneTooltip": hideFinalSceneTooltip(msg.args && msg.args[0]); break;
+        case "focusFinalSceneOnly": focusFinalSceneOnly(msg.args && msg.args[0], msg.args && msg.args[1], msg.args && msg.args[2], msg.args && msg.args[3], msg.args && msg.args[4]); break;
+        case "revealFinalScene": revealFinalScene(); break;
+        case "setFinalScenePersistentLabel": setFinalScenePersistentLabel(msg.args && msg.args[0], msg.args && msg.args[1]); break;
+        case "clearFinalScenePersistentLabel": clearFinalScenePersistentLabel(); break;
+        case "setFinalSceneTargetHighlight": setFinalSceneTargetHighlight(msg.args && msg.args[0]); break;
+        case "clearFinalSceneTargetHighlight": clearFinalSceneTargetHighlight(); break;
+        case "startFinalSceneAnimation": startFinalSceneAnimation(); break;
       }
     };
   }
@@ -1379,6 +1797,10 @@
     recoilZoom: function () {
       recoilZoom();
       broadcastFieldCall("recoilZoom");
+    },
+    resetZoom: function () {
+      resetZoom();
+      broadcastFieldCall("resetZoom");
     },
     startMemorialReveal: function (estimatedDurationMs) {
       startMemorialReveal(estimatedDurationMs);
@@ -1411,6 +1833,59 @@
     resolveNamedDot: function (targetTagId) {
       resolveNamedDot(targetTagId);
       broadcastFieldCall("resolveNamedDot", [targetTagId]);
+    },
+    getResolvedColor: getResolvedColor, // query-only, not broadcast — see its own doc comment
+    showNameTooltip: function (dotId, name, story) {
+      showNameTooltip(dotId, name, story);
+      broadcastFieldCall("showNameTooltip", [dotId, name, story]);
+    },
+    hideNameTooltip: function (dotId) {
+      hideNameTooltip(dotId);
+      broadcastFieldCall("hideNameTooltip", [dotId]);
+    },
+    startFinalScene: function (assignments) {
+      startFinalScene(assignments);
+      broadcastFieldCall("startFinalScene", [assignments]);
+    },
+    setFinalSceneAssignments: function (assignments) {
+      setFinalSceneAssignments(assignments);
+      broadcastFieldCall("setFinalSceneAssignments", [assignments]);
+    },
+    startFinalSceneAnimation: function () {
+      startFinalSceneAnimation();
+      broadcastFieldCall("startFinalSceneAnimation");
+    },
+    showFinalSceneTooltip: function (dotIndex, name, story, noteFrequency) {
+      showFinalSceneTooltip(dotIndex, name, story, noteFrequency);
+      broadcastFieldCall("showFinalSceneTooltip", [dotIndex, name, story, noteFrequency]);
+    },
+    hideFinalSceneTooltip: function (dotIndex) {
+      hideFinalSceneTooltip(dotIndex);
+      broadcastFieldCall("hideFinalSceneTooltip", [dotIndex]);
+    },
+    focusFinalSceneOnly: function (dotIndex, color, name, story, noteFrequency) {
+      focusFinalSceneOnly(dotIndex, color, name, story, noteFrequency);
+      broadcastFieldCall("focusFinalSceneOnly", [dotIndex, color, name, story, noteFrequency]);
+    },
+    revealFinalScene: function () {
+      revealFinalScene();
+      broadcastFieldCall("revealFinalScene");
+    },
+    setFinalScenePersistentLabel: function (dotIndex, name) {
+      setFinalScenePersistentLabel(dotIndex, name);
+      broadcastFieldCall("setFinalScenePersistentLabel", [dotIndex, name]);
+    },
+    setFinalSceneTargetHighlight: function (dotIndex) {
+      setFinalSceneTargetHighlight(dotIndex);
+      broadcastFieldCall("setFinalSceneTargetHighlight", [dotIndex]);
+    },
+    clearFinalSceneTargetHighlight: function () {
+      clearFinalSceneTargetHighlight();
+      broadcastFieldCall("clearFinalSceneTargetHighlight");
+    },
+    clearFinalScenePersistentLabel: function () {
+      clearFinalScenePersistentLabel();
+      broadcastFieldCall("clearFinalScenePersistentLabel");
     },
     setVisible: setVisible // local-only (see above), never broadcast
   };

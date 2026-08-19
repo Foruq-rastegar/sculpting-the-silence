@@ -13,23 +13,54 @@
        via window.Field; each stage wires up its own timing. -->
   <canvas id="field-canvas" class="field-canvas"></canvas>
 
-  <!-- Dev/testing only: on-screen buttons that toggle frame/field
-       visibility live, independent of the ?screen= URL param (which can
-       still be used to set the initial state). See shared.js's
-       setupDevScreenToggleButtons(). -->
-  <div class="dev-screen-toggles" id="dev-screen-toggles">
-    <button type="button" class="dev-screen-toggles__btn" id="dev-toggle-frame-btn">Frame</button>
-    <button type="button" class="dev-screen-toggles__btn" id="dev-toggle-field-btn">Field</button>
+  <!-- Round 8, item 4 — every dev/testing control is tucked behind this
+       single "more" toggle: near-invisible, top-left, pulled out of the
+       normal tab order (tabindex="-1") — not part of the exhibition flow
+       a regular visitor would ever see or reach. See shared.js's
+       setupDevMoreMenu(). -->
+  <button type="button" class="dev-more-toggle" id="dev-more-toggle-btn" tabindex="-1" aria-label="Dev tools">&#8943;</button>
+
+  <div class="dev-more-panel" id="dev-more-panel" hidden>
+    <div class="dev-more-panel__section">
+      <p class="dev-more-panel__heading">Stages</p>
+      <!-- Dev/testing only: one button per stage, jumps straight there,
+           skipping everything before it. See shared.js's
+           setupDevStageSkipButtons() — populated there, empty here since
+           the button count follows TOTAL_STAGES rather than being
+           hardcoded. -->
+      <div class="dev-stage-skip" id="dev-stage-skip"></div>
+    </div>
+
+    <div class="dev-more-panel__section">
+      <p class="dev-more-panel__heading">Settings</p>
+      <!-- Dev/testing only: on-screen buttons that toggle frame/field
+           visibility live, independent of the ?screen= URL param (which
+           can still be used to set the initial state), plus a manual
+           full-reload reset and a one-click entries-registry clear. See
+           shared.js's setupDevScreenToggleButtons()/
+           setupDevResetEntriesButton()/setupDevRefreshButton(). -->
+      <div class="dev-screen-toggles" id="dev-screen-toggles">
+        <button type="button" class="dev-screen-toggles__btn" id="dev-toggle-frame-btn">Frame</button>
+        <button type="button" class="dev-screen-toggles__btn" id="dev-toggle-field-btn">Field</button>
+        <button type="button" class="dev-screen-toggles__btn" id="dev-reset-entries-btn">Reset entries</button>
+        <button type="button" class="dev-screen-toggles__btn" id="dev-refresh-btn">Refresh</button>
+      </div>
+    </div>
   </div>
 
   <!-- Stage 1: Content Warning -->
   <section id="stage-1" class="stage stage-1 is-active" data-stage="1">
     <div class="background-layer" style="background-image: url('assets/images/s1_banner_sensitive_content_img.png');"></div>
-    <div class="frame frame--intro">
-      <img class="stage-1__icon" src="assets/icons/s1_sensetive_content_icon.svg" alt="" width="110" height="91">
-      <h1 class="frame__title stage-1__title">Content Warning</h1>
-      <p class="frame__body stage-1__body">This experience contains emotionally intense content that some people may find overwhelming.</p>
-      <button type="button" class="button" id="stage-1-continue-btn">Run the Experience</button>
+    <div class="frame">
+      <!-- See .moment-content-box in global.css — replaces the old
+           .frame--intro frosted-blur treatment (removed) with the same
+           dark panel used everywhere else. -->
+      <div class="moment-content-box moment-content-box--s1-warning">
+        <img class="stage-1__icon" src="assets/icons/s1_sensetive_content_icon.svg" alt="" width="110" height="91">
+        <h1 class="frame__title stage-1__title">Content Warning</h1>
+        <p class="frame__body stage-1__body">This experience contains emotionally intense content that some people may find overwhelming.</p>
+        <button type="button" class="button" id="stage-1-continue-btn">Run the Experience</button>
+      </div>
     </div>
   </section>
 
@@ -55,7 +86,15 @@
     <div class="frame stage-2__frame">
 
       <div class="moment stage-2__moment stage-2__moment--video is-active" id="stage-2-moment-video" data-moment="1">
-        <video id="stage-2-video" class="stage-2__video" src="assets/video/s2_protest_socialmedia_feeds_vid.mp4" autoplay playsinline preload="none"></video>
+        <!-- No static autoplay attribute here — a bare autoplay video stays
+             a live DOM element even while hidden (display:none doesn't
+             pause media), so the browser could play it (with sound) right
+             on page load once autoplay-with-sound was already permitted
+             for this origin in the same session (e.g. after the idle
+             reset's reload) — bypassing stage2.js's own load()+play()
+             trigger entirely. Playback is driven solely by that JS trigger
+             instead, exactly when stage 2's moment begins. -->
+        <video id="stage-2-video" class="stage-2__video" src="assets/video/s2_protest_socialmedia_feeds_vid.mp4" playsinline preload="none"></video>
       </div>
 
       <!-- Reused for every spinner-only beat (load_anim_1/2 before the
@@ -64,32 +103,41 @@
       <div class="moment stage-2__moment stage-2__moment--spinner" id="stage-2-moment-spinner"></div>
 
       <div class="moment stage-2__moment stage-2__moment--cutoff" id="stage-2-moment-cutoff" data-moment="2">
-        <p class="frame__body" id="stage-2-cutoff-text"></p>
-        <div class="counter-widget">
-          <p class="counter-number" id="stage-2-counter-number"></p>
-          <p class="counter-caption" id="stage-2-counter-caption"></p>
+        <!-- See .moment-content-box in global.css. Purely additive: same
+             two children as before, unchanged. -->
+        <div class="moment-content-box moment-content-box--s2-cutoff">
+          <p class="frame__body" id="stage-2-cutoff-text"></p>
+          <div class="counter-widget">
+            <p class="counter-number" id="stage-2-counter-number"></p>
+            <p class="counter-caption" id="stage-2-counter-caption"></p>
+          </div>
         </div>
       </div>
 
       <div class="moment stage-2__moment stage-2__moment--gunfire" id="stage-2-moment-gunfire" data-moment="3">
-        <p class="frame__body" id="stage-2-gunfire-text"></p>
-        <div class="waveform-indicator" id="stage-2-waveform">
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
-          <span class="waveform-indicator__bar"></span>
+        <!-- See .moment-content-box in global.css. Purely additive: same
+             three children as before, unchanged (currently unused while
+             ENABLE_S2_MOM_04 is false in stage2.js). -->
+        <div class="moment-content-box moment-content-box--s2-gunfire">
+          <p class="frame__body" id="stage-2-gunfire-text"></p>
+          <div class="waveform-indicator" id="stage-2-waveform">
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+            <span class="waveform-indicator__bar"></span>
+          </div>
+          <audio id="stage-2-gunshot-audio" src="assets/audio/s2_gunshot_warning_snd.mp3" preload="none"></audio>
         </div>
-        <audio id="stage-2-gunshot-audio" src="assets/audio/s2_gunshot_warning_snd.mp3" preload="none"></audio>
       </div>
 
     </div>
@@ -124,16 +172,31 @@
     </div>
 
     <!-- s5_mom_24 — full-viewport collective board, not a .frame card.
-         Hidden until s5_mom_23's closing statement finishes typing. -->
+         Hidden until s5_mom_23's closing statement finishes typing.
+         PRESERVED AS A FALLBACK — the new shared final scene below is the
+         current default (see stage4-5.js's USE_NEW_FINAL_SCENE flag); this
+         old board is left fully intact, untouched, so flipping that flag
+         back reverts to it instantly. -->
     <div class="collective-board" id="stage-5-board" hidden>
       <p class="collective-board__footer" id="stage-5-board-footer"></p>
       <button type="button" class="collective-board__export-btn" id="stage-5-board-export-btn">Export</button>
       <div class="collective-board__names" id="stage-5-board-names"></div>
       <div class="collective-board__tooltip" id="stage-5-board-tooltip" hidden></div>
     </div>
+
+    <!-- New shared final scene (js/final-scene.js) — a fixed deterministic
+         dot pattern, identical between this canvas and field.js's own
+         #field-canvas once Field.startFinalScene() switches it over. A
+         separate, independently toggleable section from #stage-5-board
+         above, not a replacement of it. -->
+    <div class="final-scene" id="stage-5-final-scene" hidden>
+      <canvas id="stage-5-final-scene-canvas" class="final-scene__canvas"></canvas>
+      <p class="final-scene__footer">Thank you for calling them out of silence.</p>
+    </div>
   </section>
 
   <script src="js/shared.js"></script>
+  <script src="js/final-scene.js"></script>
   <script src="js/field.js"></script>
   <script src="js/stage1.js"></script>
   <script src="js/stage2.js"></script>

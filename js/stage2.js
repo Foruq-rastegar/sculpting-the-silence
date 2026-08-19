@@ -85,12 +85,20 @@
   // starting at the beginning of s2_mom_03 and spanning the rest of stage 2
   // — its animateZoomTo() duration below is a pacing estimate of that
   // remaining stage-2 time, but the authoritative cutoff is event-driven:
-  // stage3.js triggers phase 2 (recoilZoom(), a sharp -30% snap) directly
-  // off the s3_gunshot_snd audio element's native "play" event (fired the
-  // instant STS.gunshotAudio.start() actually starts that file playing, at
-  // the very start of stage 3), so phase 1 always meets phase 2 at exactly
-  // the right instant even if this pacing estimate drifts.
-  var STAGE2_FIELD_ZOOM = 2.3;
+  // stage3.js triggers phase 2 directly off the s3_gunshot_snd audio
+  // element's native "play" event (fired the instant STS.gunshotAudio.start()
+  // actually starts that file playing, at the very start of stage 3), so
+  // phase 1 always meets phase 2 at exactly the right instant even if this
+  // pacing estimate drifts.
+  //
+  // EXPERIMENTAL, may be reverted — test: was 2.3 (full punch-and-settle
+  // recoil down to 1.61x, see field.js's recoilZoom()); this test only
+  // builds up to 1.3x and phase 2 is now field.js's resetZoom() (full reset
+  // to 1x, see stage3.js) instead of recoilZoom(). Same buildup timing
+  // otherwise. Revert this constant back to 2.3, and stage3.js's
+  // resetZoom() call back to recoilZoom(), to restore the previous tuned
+  // system.
+  var STAGE2_FIELD_ZOOM = 1.3;
 
   // Rotation count of the load_anim_1 spinner immediately following
   // s2_mom_03 (the "else" branch below, standing in for the disabled
@@ -200,24 +208,42 @@
     return stop;
   }
 
-  // Mirrors the frame's own load_anim_1 (4 rotations) then load_anim_2 (3
-  // rotations) spinner beats — see the "load_anim_1"/"load_anim_2" moments
-  // below — onto the field layer itself, via the same STS.runSpinner used
-  // everywhere else. Called directly alongside window.Field.stopFlow(), not
+  // Mirrors a frame-side spinner beat onto the field layer itself, via the
+  // same STS.runSpinner used everywhere else. spinCounts is an ordered
+  // list of rotation counts — [4, 3] for the load_anim_1-then-load_anim_2
+  // pair right after the video, or a single-item list like
+  // [POST_CUTOFF_LOAD_SPIN_COUNT] for a lone spinner beat elsewhere in
+  // stage 2. Called directly at each spinner's own trigger point, not
   // queued through the moments[] runner, so fieldSpinnerEl deliberately
-  // isn't a ".moment" (see its HTML comment). The wrap box itself now has a
-  // background fill (see its CSS), so it's no longer invisible-when-empty —
-  // "is-active" explicitly shows it for exactly the run's duration and
+  // isn't a ".moment" (see its HTML comment). The wrap box itself has a
+  // background fill (see its CSS), so it's no longer invisible-when-empty
+  // — "is-active" explicitly shows it for exactly the run's duration and
   // nothing outside it.
-  function playFieldSpinnerSequence(fieldSpinnerEl) {
+  //
+  // BUGFIX: this used to be hardcoded to the [4, 3] pair and only ever
+  // called from the video's "ended" handler — the later lone spinner beat
+  // (the load_anim_1 stand-in for the disabled s2_mom_04, see the "else"
+  // branch in initStage2 below) had no field-side mirror at all, so
+  // field-only screens went dark during that pause instead of showing a
+  // loading indicator. Generalized to any spinCounts list so every
+  // frame-side spinner beat in this stage can mirror onto field the same
+  // way, and wired up at the one spot that was missing it.
+  function playFieldSpinnerSequence(fieldSpinnerEl, spinCounts) {
     if (!fieldSpinnerEl) return;
     fieldSpinnerEl.classList.add("is-active");
-    STS.runSpinner(fieldSpinnerEl, 4, function () {
-      STS.runSpinner(fieldSpinnerEl, 3, function () {
+
+    function runNext(index) {
+      if (index >= spinCounts.length) {
         fieldSpinnerEl.innerHTML = ""; // clear the spinner, back to empty
         fieldSpinnerEl.classList.remove("is-active"); // hide the wrap box itself
+        return;
+      }
+      STS.runSpinner(fieldSpinnerEl, spinCounts[index], function () {
+        runNext(index + 1);
       });
-    });
+    }
+
+    runNext(0);
   }
 
   function initStage2() {
@@ -251,7 +277,7 @@
             videoEl.removeEventListener("ended", onEnded);
             if (flowStartTimer) clearTimeout(flowStartTimer);
             if (window.Field) window.Field.stopFlow();
-            playFieldSpinnerSequence(fieldSpinnerEl);
+            playFieldSpinnerSequence(fieldSpinnerEl, [4, 3]); // matches load_anim_1/load_anim_2 below
             advance();
           };
           videoEl.addEventListener("ended", onEnded);
@@ -357,9 +383,14 @@
         // load_anim_1 — brief transitional spinner beat standing in for
         // the disabled s2_mom_04, before moving on to stage 3. Its rotation
         // count is POST_CUTOFF_LOAD_SPIN_COUNT so the field zoom kicked off
-        // in the cutoff moment above finishes exactly when this ends.
+        // in the cutoff moment above finishes exactly when this ends. Also
+        // mirrored onto field (see playFieldSpinnerSequence's bugfix note)
+        // — previously only the load_anim_1/load_anim_2 pair right after
+        // the video had a field-side mirror, so field-only screens went
+        // dark during this later pause.
         el: spinnerMomentEl,
         run: function (advance) {
+          playFieldSpinnerSequence(fieldSpinnerEl, [POST_CUTOFF_LOAD_SPIN_COUNT]);
           STS.runSpinner(spinnerMomentEl, POST_CUTOFF_LOAD_SPIN_COUNT, advance);
         }
       });

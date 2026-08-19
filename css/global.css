@@ -94,17 +94,77 @@ html.frame-hidden .frame {
   display: none;
 }
 
-/* Dev/testing only — small, low-opacity buttons that toggle frame/field
-   visibility live in either window, without editing the URL. Positioned
-   unobtrusively in a corner so they don't interfere with the actual
-   experience; sits above even the full-viewport blackout overlay so it
-   always stays reachable. */
-.dev-screen-toggles {
+/* Round 8, item 4 — dev tools are now tucked behind this single "more"
+   toggle instead of sitting permanently on screen: a near-invisible "..."
+   in the top-left corner (see setupDevMoreMenu() in shared.js), deliberately
+   NOT part of the normal exhibition flow — opacity stays low even on
+   hover/focus (unlike every other dev button here, which brightens to
+   fully opaque), and it's pulled out of the regular tab order
+   (tabindex="-1" in the HTML) so a keyboard user tabbing through the page
+   never lands on it by accident. Still a real, clickable/tappable element
+   for anyone who knows to look for it — not display:none — just visually
+   quiet enough that a regular visitor exploring the kiosk has no reason to
+   ever notice or reach it. */
+.dev-more-toggle {
   position: fixed;
-  right: 8px;
-  bottom: 8px;
+  left: 8px;
+  top: 8px;
+  z-index: 1001;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.6);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.12;
+  transition: opacity 0.15s ease;
+}
+
+.dev-more-toggle:hover,
+.dev-more-toggle:focus-visible {
+  opacity: 0.5;
+}
+
+/* The panel itself is a plain, fully-visible dev panel once opened — only
+   the toggle above needs to stay quiet; there's no reason to also hide
+   the controls FROM the person who already deliberately opened them. */
+.dev-more-panel {
+  position: fixed;
+  left: 8px;
+  top: 34px;
   z-index: 1000;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dev-more-panel[hidden] {
+  display: none;
+}
+
+.dev-more-panel__heading {
+  margin: 0 0 4px;
+  font-family: inherit;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Dev/testing only — small, low-opacity buttons that toggle frame/field
+   visibility live in either window, without editing the URL, plus the
+   manual refresh/reset-entries buttons (round 8). Flows inside
+   .dev-more-panel now rather than floating independently — see that
+   container's own doc comment above for why these moved. */
+.dev-screen-toggles {
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
@@ -131,9 +191,41 @@ html.frame-hidden .frame {
   text-decoration: line-through;
 }
 
+/* Dev/testing only — one button per stage, jumps straight there via
+   goToStage() (see setupDevStageSkipButtons() in shared.js). Flows inside
+   .dev-more-panel now (round 8) rather than floating independently along
+   the left edge — see that container's own doc comment above. */
+.dev-stage-skip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dev-stage-skip__btn {
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.6);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+
+.dev-stage-skip__btn:hover,
+.dev-stage-skip__btn:focus-visible {
+  opacity: 1;
+}
+
 /* Centered content frame, fixed design width that shrinks on narrow
-   viewports. Sits above the background layer. Plain by default — the
-   frosted-card look (blur/tint/grain) is opt-in via .frame--intro. */
+   viewports. Sits above the background layer. Plain by default — content
+   legibility over a stage's own background image/video is handled per-
+   moment by .moment-content-box (see stage 1's own use of it below), not
+   by this element itself. */
 .frame {
   position: relative;
   z-index: 1;
@@ -151,28 +243,6 @@ html.frame-hidden .frame {
   overflow: visible;
   border-radius: var(--frame-radius);
   --spinner-color: red; /* EXPERIMENTAL — frame's own spinner color, decoupled from the field's */
-}
-
-/* Frosted-card treatment: dark tint + blur + grain. Stage 1 ("Content
-   Warning") only — floats the card over its sharp background image.
-   Stages 2+ render .frame plain against their own stage background. */
-.frame--intro {
-  background: rgba(18, 18, 18, 0.45);
-  backdrop-filter: blur(10px) saturate(180%);
-  -webkit-backdrop-filter: blur(10px) saturate(180%);
-}
-
-/* Fine grain/noise texture confined to the card, clipped to its
-   corners. Purely decorative — never intercepts pointer events. */
-.frame--intro::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC41NSIgbnVtT2N0YXZlcz0iMiIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjxmZUNvbG9yTWF0cml4IHR5cGU9InNhdHVyYXRlIiB2YWx1ZXM9IjAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbikiLz48L3N2Zz4K");
-  opacity: 0.10;
-  mix-blend-mode: overlay;
-  pointer-events: none;
 }
 
 /* Instantly hides the card on stage advance, revealing the sharp
@@ -220,9 +290,11 @@ html.frame-hidden .frame {
 }
 
 /* Alternative/de-emphasized CTA — e.g. s4_mom_22's "Let me just read
-   their stories" beside its primary "Let me give them a name and story".
-   Same shape/border as .button, just visually quieter. */
+   their stories" beside its primary "Let me be the one who speaks for
+   them". Same padding/font as .button, just visually quieter — no
+   border/stroke (unlike .button's own), on top of the reduced opacity. */
 .button--secondary {
+  border-color: transparent;
   opacity: 0.6;
 }
 
@@ -258,6 +330,9 @@ html.frame-hidden .frame {
 
 .stage-1__title {
   margin-bottom: 16px;
+  /* Same red as .counter-number/.counter-caption__unit elsewhere in the
+     app, rather than the plain CSS "red" keyword. */
+  color: #e53935;
 }
 
 .stage-1__body {
@@ -290,6 +365,143 @@ html.frame-hidden .frame {
   display: flex;
 }
 
+/* FINALIZED — content wrapper, rolled out from the s2_mom_03 test to
+   every other text-bearing moment (see the per-moment min-height
+   modifiers below). Purely additive everywhere it's used: a new inner
+   div wrapping a moment's *existing* children (no changes to their own
+   classes/spacing), inside .moment/.message-moment's existing
+   position/centering — never applied to that outer element itself
+   (that's what made the earlier .moment-content-panel attempt awkward:
+   100px padding stacked directly onto .moment's own
+   position:absolute;inset:0 box left very little room). For static
+   HTML moments (stage 2) the wrapper div is written directly in
+   index.html; for JS-built ones (stage 4/5) shared.js's
+   createMomentContentBox(containerEl) creates and appends it the same
+   way, returning it so the caller appends its own children there
+   instead of to containerEl.
+
+   max-width is now percentage-based (was a fixed 300px during the
+   s2_mom_03 test) — 89%, the equivalent conversion at the reference size
+   that fixed value was originally chosen against: .frame's own max
+   402px width minus 2x32px --frame-padding = 338px interior, and
+   300/338 = 88.8% ~= 89%. Percentage instead of a fixed px value so it
+   scales proportionally as .frame itself shrinks on narrower viewports
+   (min(92vw, 402px, ...)), rather than staying a fixed 300px that would
+   eventually exceed .frame's own interior width. width:100% (up to that
+   cap) rather than shrink-to-content, so the panel's own width stays
+   visually consistent regardless of exactly how much content is showing.
+
+   min-height is NOT set here — every moment that uses this base class
+   also gets one of the modifiers below, each estimated the same way the
+   s2_mom_03 test's 190px was (that moment's own expected content height
+   + this wrapper's own 20px top/bottom padding), so the panel comfortably
+   fits its typical case without visible empty space while still being a
+   floor (height:auto beyond that), not a fixed height.
+
+   Background: 85% opacity black, finalized after the s2_mom_03 test went
+   30% -> 55% -> 85% before reading as clearly legible. No backdrop-filter
+   here (unlike the final scene's tooltip panel) — not part of this. */
+.moment-content-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 89%;
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.85);
+  border-radius: 0;
+}
+
+/* s2_mom_03 — the original test moment. Text (up to its own 4-line
+   reservation) + the minutes/hours/days counter below it. */
+.moment-content-box--s2-cutoff {
+  min-height: 190px;
+}
+
+/* s2_mom_04 (gunfire warning) — currently disabled (ENABLE_S2_MOM_04 =
+   false in stage2.js) but the code/markup stays intact, so this is ready
+   if it's ever re-enabled. Short single-line warning text + the 28px-tall
+   waveform indicator (48px with its own 20px margin-top). */
+.moment-content-box--s2-gunfire {
+  min-height: 120px;
+}
+
+/* Stage 4's 9 name moments (runNameMoment) — name (+ optional age line)
+   + subtext (some quite long — several run 4-5 lines at the 35ch wrap)
+   + the "Call them by name" button. Sized for a typical/longer subtext,
+   not the single longest one — shorter ones just leave a little more
+   breathing room above the button rather than needing their own value.
+   gap: 28px restores spacing between name/age/subtext/action that used
+   to come from .message-moment's own gap (all of frame__title/
+   frame__body/message-moment__action are margin:0 — they never had any
+   spacing of their own, entirely relying on that parent gap; now that
+   these render into this box instead, the box needs to provide it). */
+.moment-content-box--s4-name {
+  gap: 28px;
+  min-height: 220px;
+}
+
+/* s4_mom_22, the "#11780" choice screen (runElevenChoiceMoment) — title +
+   a notably long subtext (~7-8 lines at the 35ch wrap) + two stacked
+   ctas. The tallest of this rollout by a good margin, driven almost
+   entirely by that subtext length. Same gap reasoning as --s4-name. */
+.moment-content-box--s5-choice {
+  gap: 28px;
+  min-height: 350px;
+}
+
+/* s4_mom_23, the standalone closing form (runElevenFormMoment).
+   BUGFIX: the two fields were overlapping — root cause was this same
+   missing gap (see --s4-name's own comment): .stage-5__field + .stage-5
+   __field's existing -20px margin was designed against .message-moment's
+   28px gap (net 8px of visible spacing), but with no gap here at all it
+   became a genuine -20px overlap instead. gap: 28px restores the
+   intended net spacing. Separately, per the actual bug report: no
+   min-height at all here (unlike every other modifier above) — this
+   moment's fields slide in one at a time and the box's height should
+   track that growth exactly, not hold a floor a partially-filled form
+   would otherwise get vertically centered within. */
+.moment-content-box--s5-form {
+  gap: 28px;
+}
+
+/* Stage 3's message moments (runMessageMoment) — message text (up to a
+   few lines) + the attempt button/spinner/audio-response area below it.
+   Leak image/video media itself never renders in here — see
+   .message-moment__leak-media below — so this only ever needs to fit
+   text-height content, sized for the audio response case (subtitle +
+   48px-tall waveform), the tallest of this moment's non-media states.
+   Same gap reasoning as --s4-name. */
+.moment-content-box--s3-message {
+  gap: 28px;
+  min-height: 220px;
+}
+
+/* s3_mom_12, "Name Them" (runNameThemMoment) — its own step text/caption
+   + the step/final cta button. s3_leak_08_img itself (the "image-with-
+   caption" step's image) is excluded from this box, same rule as every
+   other stage-3 leak's media — see .message-moment__leak-media — even
+   though it has no applyLeakZoomAndFade treatment to protect (see
+   CLAUDE.md); only its caption text renders in here. Sized like
+   --s3-message, since this box only ever holds text-height content. */
+.moment-content-box--s3-name-them {
+  gap: 28px;
+  min-height: 220px;
+  /* Shifts the whole box up slightly within the moment. */
+  transform: translateY(-5%);
+}
+
+/* s1_mom_01, the Content Warning banner — replaces the old .frame--intro
+   frosted-blur/tint/grain treatment (removed) with the same dark panel
+   used everywhere else. Sized for its icon (91px) + title + ~3-line body
+   (35ch wrap) + button, the tallest fixed content of any single moment in
+   the app — existing element margins (.stage-1__icon/__title/__body's own
+   margin-bottom) already provide spacing, so no gap needed here. */
+.moment-content-box--s1-warning {
+  min-height: 300px;
+}
+
 /* Video moment fills the card edge-to-edge, ignoring the frame's padding. */
 .stage-2__moment--video {
   padding: 0;
@@ -305,9 +517,12 @@ html.frame-hidden .frame {
 
 /* Reserved for the tallest expected wrap (~4 lines at max-width: 35ch) so
    the counter widget below never shifts, whether mid-type or between
-   texts of different lengths — ported from the approved prototype. */
+   texts of different lengths — ported from the approved prototype.
+   margin-bottom halved (20px -> 10px) per feedback that s2_mom_03's
+   vertical spacing overall read as too loose — see .counter-widget's
+   matching margin-top halve. */
 .stage-2__moment--cutoff .frame__body {
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   min-height: calc(var(--font-size-body) * var(--line-height-body) * 4);
 }
 
@@ -334,23 +549,27 @@ html.frame-hidden .frame {
    covered by .frame in combined mode. Decorative only, like the field
    canvas — never intercepts input.
 
-   The box itself (30vw square, centered via inset:0 + margin:auto) is a
+   The box itself (12vw square, centered via inset:0 + margin:auto) is a
    separate experimental treatment: auto-layout (flex) centering its own
    content, 20%-of-its-own-width padding inset on all sides (computed
-   directly as 6vw — CSS % padding resolves against the *containing
+   directly as 2.4vw — CSS % padding resolves against the *containing
    block's* width, not this element's own width, so 20% written here would
-   actually mean 20% of the viewport, not of this 30vw box), 50%-opacity
-   black fill. Hidden by default (display:none) rather than relying on
+   actually mean 20% of the viewport, not of this 12vw box), 85%-opacity
+   black fill (was 50%, brought in line with .moment-content-box's own
+   finalized 85%). Hidden by default (display:none) rather than relying on
    being empty-therefore-invisible — now that it has a background fill, an
-   empty-but-displayed box would still show as a plain black square. */
+   empty-but-displayed box would still show as a plain black square.
+   Wrapper box was 30vw, then shrunk a further 60% to today's 12vw
+   (30 * 0.4) — --spinner-size below is untouched by that, it's an
+   independent fixed value, not computed as a fraction of the box. */
 .stage-2__moment--field-spinner {
   position: absolute;
   inset: 0;
   margin: auto; /* combined with the explicit width/height below, centers this box within inset:0 */
-  width: 30vw;
-  height: 30vw;
-  padding: 6vw; /* 20% of this box's own 30vw width/height */
-  background-color: rgba(0, 0, 0, 0.5);
+  width: 12vw;
+  height: 12vw;
+  padding: 2.4vw; /* 20% of this box's own 12vw width/height */
+  background-color: rgba(0, 0, 0, 0.85);
   display: none;
   align-items: center;
   justify-content: center;
@@ -364,22 +583,29 @@ html.frame-hidden .frame {
 }
 
 /* Escalating minutes-then-hours-then-days counter (moment 2.2, s2_mom_03)
-   — continues the cutoff text's trailing "for" (e.g. "...for 18+ Days"). */
+   — continues the cutoff text's trailing "for" (e.g. "...for 18+ Days").
+   margin-top halved (20px -> 10px) per feedback that s2_mom_03's vertical
+   spacing overall read as too loose — see .stage-2__moment--cutoff
+   .frame__body's matching margin-bottom halve below, and
+   .counter-caption's margin-top halve, for the moment's other two gaps. */
 .counter-widget {
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 /* Line 1 — just the number. Same size/weight token as .frame__title,
-   bumped 4px and recolored red for emphasis. */
+   bumped 4px and recolored red for emphasis. Bumped a further 3px (7px
+   total) per feedback that red text should read larger. */
 .counter-number {
-  font-size: calc(var(--font-size-title) + 4px);
+  font-size: calc(var(--font-size-title) + 7px);
   font-weight: var(--font-weight-title);
   line-height: 1;
   color: #e53935;
   margin: 0;
 }
 
-/* Line 2 — the current phase's unit label ("Minutes"/"Hours"/"Days"). */
+/* Line 2 — the current phase's unit label ("Minutes"/"Hours"/"Days").
+   margin-top halved (6px -> 3px), same spacing feedback as .counter-widget
+   above. */
 .counter-caption {
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-body);
@@ -388,12 +614,15 @@ html.frame-hidden .frame {
      have dulled .counter-caption__unit's red below regardless of its
      own color value. */
   color: rgba(255, 255, 255, 0.6);
-  margin: 6px 0 0;
+  margin: 3px 0 0;
 }
 
-/* "Minutes"/"Hours"/"Days" within the caption — same red as .counter-number. */
+/* "Minutes"/"Hours"/"Days" within the caption — same red as .counter-number.
+   font-size bumped 3px above its inherited .counter-caption size, same red-
+   text-size feedback as .counter-number above. */
 .counter-caption__unit {
   color: #e53935;
+  font-size: calc(var(--font-size-body) + 3px);
 }
 
 /* Audio-waveform indicator: a row of thin bars whose height animates in a
@@ -474,6 +703,26 @@ html.frame-hidden .frame {
   min-height: 44px;
 }
 
+/* Mounts a leak image/video's media only (never its caption — see
+   .moment-content-box--s3-message) as a plain in-flow sibling of
+   .moment-content-box, deliberately NOT position:absolute: staying in
+   flow keeps it from ever visually covering the box's caption text, while
+   applyLeakZoomAndFade's transform:scale() (which doesn't affect layout)
+   still lets the media visually overflow past this element exactly as it
+   overflows .frame today. Hidden whenever nothing's mounted, so it never
+   reserves space or shows as an empty gap between message-moment's other
+   children. */
+.message-moment__leak-media {
+  display: none;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-moment__leak-media.is-active {
+  display: flex;
+}
+
 .message-moment__response-text {
   margin: 0;
 }
@@ -525,12 +774,54 @@ html.frame-hidden .frame {
 
 /* Wraps the "name them" moment's image+caption step (s3_mom_12).
    Shifted up slightly from center to leave room for the caption
-   directly below it. */
+   directly below it. max-width matches .moment-content-box's own 89%, so
+   s3_leak_08_img renders at the same size as the content-wrapper below
+   it rather than its own uncapped natural size. */
 .name-them-moment__image-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
+  max-width: 89%;
   transform: translateY(-20px);
+}
+
+/* s3_mom_12's 7 diaspora-reaction steps — a blurred profile icon alongside
+   its "Name: quote" line. text-align:left (overriding .message-moment's
+   inherited center) reads better paired with a leading icon, and
+   align-items:flex-start keeps the icon pinned to the first line rather
+   than centering against a multi-line wrapped quote. Hidden by default via
+   .name-them-moment__avatar below — the intro line ("#11780?????") reuses
+   this same textEl but isn't a reaction, so it should show no icon. */
+.name-them-moment__reaction {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  text-align: left;
+}
+
+.name-them-moment__avatar {
+  display: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  object-fit: cover;
+  border-radius: 0;
+  filter: blur(4px);
+  flex-shrink: 0;
+}
+
+.name-them-moment__avatar.is-active {
+  display: block;
+}
+
+/* s3_mom_12 step 4 (s3_leak_08_img + s3_diaspora_react_04_txt) — pulls
+   boxEl up snug against the unwrapped leak image above it: containerEl's
+   (.message-moment) 28px gap is the normal space between mediaEl and
+   boxEl, so a -48px margin-top nets out to the requested -20px gap — same
+   margin-against-gap trick as .stage-5__field's -20px rule (see its own
+   comment) against that same 28px parent gap. */
+.name-them-moment__box--tight-to-image {
+  margin-top: -48px;
 }
 
 /* Full-viewport blackout overlay, created/removed on demand by the
@@ -728,6 +1019,247 @@ html.frame-hidden .frame {
   color: var(--color-fg);
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* New shared final scene (js/final-scene.js) — same full-viewport,
+   non-.frame treatment as .collective-board above, since this replaces it
+   as the frame-facing final page (see stage4-5.js's USE_NEW_FINAL_SCENE).
+   The scattered dots themselves are canvas-drawn (no per-dot DOM elements
+   to style); only the tooltip and footer below are real DOM. Interactive
+   (hover/tap on assigned dots), unlike field.js's own #field-canvas which
+   stays pointer-events:none. */
+.final-scene {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  background-color: #000000;
+  z-index: 10;
+}
+
+.final-scene[hidden] {
+  display: none;
+}
+
+.final-scene__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+/* A dot's name+story reveal — one shared element per renderer instance
+   (js/final-scene.js positions/repopulates it, never creates more than
+   one). Legibility pass: a dark translucent panel + backdrop-filter blur
+   of the dots behind it, rather than a stroke/outline on the text itself
+   — same "dark fill behind content" idea as .stage-2__moment--field-
+   spinner's box, just blurred instead of opaque. position:fixed + a
+   left/top set in JS (canvas-local pixels == viewport pixels here, since
+   this scene has no zoom/devicePixelRatio scaling to account for). */
+.final-scene__tooltip {
+  position: fixed;
+  transform: translate(-50%, 0);
+  max-width: 240px;
+  background-color: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 8px 12px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+  z-index: 15;
+}
+
+.final-scene__tooltip--visible {
+  opacity: 1;
+}
+
+/* Bug fix (round 7, item 3) — the inline name/story editor (stage4-5.js:
+   activateInlineEditor) reuses .final-scene__tooltip's own panel for its
+   look, but its unified placeholder copy ("Call them out of the silence
+   by a story" etc.) is longer than any real name/story this panel was
+   originally sized for, and was getting clipped inside the regular
+   tooltip's 240px cap. This modifier only widens the panel when it's
+   actually being used as the editor — the plain read-only tooltip (every
+   other final-scene hover) keeps its original narrower width. */
+.final-scene__tooltip--inline-editor {
+  max-width: min(88vw, 320px);
+}
+
+.final-scene__tooltip-name {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-fg);
+}
+
+.final-scene__tooltip-story {
+  margin: 4px 0 0;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--color-fg);
+  opacity: 0.85;
+}
+
+/* Item 2 — tier-1-only "interact again" indicator: a plain "+" glyph
+   (no border-radius per the app's radius:0 rule — the loading spinner is
+   the one documented exception, this isn't it), pulsing to invite a
+   second click/tap. Gone the instant tier 2 (the story) reveals.
+   Bug fix (round 2) — a standalone position:fixed element (not nested in
+   .final-scene__tooltip, see final-scene.js's own doc comment on
+   tooltipIconEl), centered exactly on the dot's own screen coordinates
+   (JS sets left/top to the dot's position, this centers on that point) so
+   a click on it lands on the same canvas coordinates as the dot itself —
+   pointer-events:none lets that click pass straight through to the
+   canvas below. Every keyframe step re-states the translate(-50%,-50%)
+   centering alongside its own scale(), since a CSS animation replaces the
+   whole `transform` value per frame rather than composing with a
+   separate static one. */
+.final-scene__tooltip-icon {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--color-fg);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 15;
+  animation: final-scene-tooltip-icon-pulse 1200ms ease-in-out infinite;
+}
+
+@keyframes final-scene-tooltip-icon-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+  50% { transform: translate(-50%, -50%) scale(1.35); opacity: 0.9; }
+}
+
+/* Round 5 — the generalized inline name/story editor (stage4-5.js:
+   activateInlineEditor), shared by #11780 (round 4's original test) and,
+   once unlocked, any other unnamed/anonymous dot. Sits inside a reused
+   .final-scene__tooltip panel (same dark blurred-panel look, same
+   pointer-events:none), so these need their own pointer-events:auto
+   override to actually be clickable/typeable — the icon that triggers
+   "editing" state still passes clicks straight through the panel to the
+   canvas underneath, same as .final-scene__tooltip-icon always has. */
+.final-scene__inline-editor-input {
+  display: block;
+  width: 100%;
+  max-width: min(84vw, 296px); /* round 7, item 3 — widened to fit the unified placeholder copy in full, see .final-scene__tooltip--inline-editor above */
+  margin: 4px auto 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 0;
+  padding: 2px 0;
+  font-family: var(--font-family);
+  font-size: 12px;
+  color: var(--color-fg);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.final-scene__inline-editor-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.final-scene__inline-editor-input:focus {
+  outline: none;
+  border-bottom-color: var(--color-fg);
+}
+
+.final-scene__inline-editor-input[hidden] {
+  display: none;
+}
+
+.final-scene__tooltip-name[hidden],
+.final-scene__tooltip-story[hidden],
+.final-scene__tooltip-icon[hidden] {
+  display: none;
+}
+
+/* Same low-priority, faded, non-interactive treatment as
+   .collective-board__footer above. */
+.final-scene__footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16px;
+  margin: 0;
+  padding: 0 16px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-fg);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Item 3d — the "give them a voice?" popup: a centered overlay over the
+   already-interactive final scene, built/appended entirely from JS (see
+   stage4-5.js), same as this file's own tooltip above.
+   .final-scene__popup-field's label/input reuse .stage-5__field-label/
+   -input's exact look directly (kept those class names generic on
+   purpose, not renamed to a s5-only scope) rather than duplicating those
+   rules.
+   Round 2's item 4 fix anchored this to the bottom to dodge the
+   highlighted #11780 dot, which otherwise sat directly under a centered
+   panel — round 3 supersedes that: the DOT now repositions itself to
+   clear the popup (see stage4-5.js's computeEleven780TargetDotIndex, the
+   same "reposition the tagged element, don't move the content box"
+   pattern field.js already uses for stage 3/4's tagged dots), so the
+   popup goes back to a normal centered position like every other content
+   panel in the app. */
+.final-scene__popup {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 24px;
+}
+
+.final-scene__popup[hidden] {
+  display: none;
+}
+
+.final-scene__popup-panel {
+  /* Item 6 — matches .moment-content-box's own effective width exactly
+     (89% of .frame's own width formula, see both above) instead of an
+     approximate fixed value, so this popup reads as consistent with
+     every other content box in the app. */
+  width: calc(min(92vw, 402px, calc(92dvh * 402 / 874)) * 0.89);
+  max-height: 80vh;
+  overflow-y: auto;
+  background-color: #000;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.final-scene__popup-text {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-fg);
+}
+
+.final-scene__popup-field {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .collective-board__export-btn {

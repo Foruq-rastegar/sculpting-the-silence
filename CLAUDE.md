@@ -85,13 +85,15 @@ a leak's own caption/subtitle may accompany it.
 Every stage-3 leak image/video (standalone or within a chain) — **except `s3_leak_08_img`**,
 which is rendered by `runNameThemMoment`'s own image+caption layout (`s3_mom_12`), never through
 the shared leak renderers — gets a slow zoom that grows to fill and slightly overflow the frame
-over its full display duration, fading to black during the final 30% of that same timeline
-(`applyLeakZoomAndFade` in `shared.js`; tunable via `LEAK_ZOOM_FILL_SCALE` / `LEAK_FADE_SHARE`).
+over its full display duration (`applyLeakZoom` in `shared.js`; tunable via `LEAK_ZOOM_FILL_SCALE`).
+Previously paired with a fade-to-black over the timeline's final 30%; the fade was removed per
+feedback, zoom kept as-is.
 
 ## Loading spinner
 
 `STS.runSpinner(mountEl, spinCount, onDone)` in `shared.js` rotates the shared circular spinner
-for `spinCount` visible rotations (`SPIN_DURATION_MS` = 900ms each) then calls back. `load_anim_1`
+for `spinCount` visible rotations (`SPIN_DURATION_MS` = 1350ms each, i.e. 1.5x the original 900ms —
+slower motion, same rotation counts everywhere) then calls back. `load_anim_1`
 … `load_anim_4` are the informal names for the 4/3/2/1-rotation presets respectively — a naming
 convenience for picking a rotation count, not a strict per-moment ladder: individual message-
 moment attempts (their `loadSpins` field) pick whichever preset fits that attempt's pacing, and
