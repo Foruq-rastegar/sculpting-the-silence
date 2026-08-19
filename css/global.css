@@ -509,8 +509,8 @@ html.frame-hidden .frame {
 
 .stage-2__video {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 80%; /* 20% smaller than the previous edge-to-edge 100% */
+  height: 80%;
   object-fit: cover;
   border-radius: var(--frame-radius);
 }
