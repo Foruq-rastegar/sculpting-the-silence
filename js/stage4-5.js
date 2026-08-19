@@ -317,11 +317,33 @@
     return changed;
   }
 
+  // Bootstraps a genuinely fresh/empty registry from the bundled seed data
+  // (data/seed-entries.js's window.STS_SEED_ENTRIES) — never touches an
+  // existing registry, even one with a single real entry. Only the
+  // minimal addEntry()-shaped fields are copied; color/x/y/note/
+  // finalSceneDotIndex are left for ensureEntryDisplayFields's own
+  // backfill right after this runs, same as any other legacy-shape entry.
+  // Cloned rather than referenced directly so ensureEntryDisplayFields's
+  // in-place mutation (adding those backfilled fields) never touches
+  // window.STS_SEED_ENTRIES's own objects.
+  function seedEntriesIfEmpty() {
+    if (!Array.isArray(window.STS_SEED_ENTRIES) || window.STS_SEED_ENTRIES.length === 0) return [];
+    return window.STS_SEED_ENTRIES.map(function (seed) {
+      return {
+        dotId: (typeof seed.dotId === "string") ? seed.dotId : null,
+        name: seed.name,
+        story: seed.story,
+        anonymous: !!seed.anonymous
+      };
+    });
+  }
+
   function loadEntries() {
     try {
       var raw = window.localStorage.getItem(ENTRIES_STORAGE_KEY);
       var parsed = raw ? JSON.parse(raw) : [];
       var entries = Array.isArray(parsed) ? parsed : [];
+      if (entries.length === 0) entries = seedEntriesIfEmpty();
       if (ensureEntryDisplayFields(entries)) {
         try {
           window.localStorage.setItem(ENTRIES_STORAGE_KEY, JSON.stringify(entries));
