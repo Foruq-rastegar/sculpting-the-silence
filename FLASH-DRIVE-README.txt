@@ -1,19 +1,15 @@
-Sculpting the Silence -- flash drive instructions
+Sculpting the Silence -- how to run this
 ==================================================
 
-Copy this ENTIRE folder onto the USB flash drive as-is (no need to zip,
-rename, or reorganize anything).
-
-To run it on the professor's laptop:
-
+To run the app on this computer:
   Windows -> double-click:  start-windows.bat
   Mac     -> double-click:  start-mac.command
 
-Either one starts a small local server on this machine only (nothing is
+Either one starts a small local server on this computer only (nothing is
 installed, nothing goes out to the internet) and opens the app in the
 default browser automatically. A console/terminal window will stay open
-while it runs -- that's expected, leave it open for the whole demo, and
-close it (or press Ctrl+C inside it) when you're done.
+while it runs -- that's expected, leave it open for the whole session,
+and close it (or press Ctrl+C inside it) when you're done.
 
 If double-clicking start-mac.command shows a security warning ("cannot
 be opened because it is from an unidentified developer"), right-click
