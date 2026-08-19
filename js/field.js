@@ -1723,13 +1723,25 @@
   }
 
   // Item 3c — in-place highlight (no camera zoom, this scene has none) for
-  // the fixed "#11780 placeholder" dot while its popup form is open.
+  // whichever "other" incomplete/anonymous dot currently has its inline
+  // editor open (see stage4-5.js's tryActivateOtherDotEditor). Not used
+  // for #11780 — see setFinalSceneEleven780Pending below for its own
+  // separate, non-stealable equivalent.
   function setFinalSceneTargetHighlight(dotIndex) {
     if (finalSceneRenderer) finalSceneRenderer.setTargetHighlight(dotIndex);
   }
 
   function clearFinalSceneTargetHighlight() {
     if (finalSceneRenderer) finalSceneRenderer.clearTargetHighlight();
+  }
+
+  // #11780's own persistent pulse (see final-scene.js's eleven780Pending-
+  // Active doc comment) — deliberately separate from setFinalSceneTarget-
+  // Highlight above, which stage4-5.js's missing-field/anonymous-dot flows
+  // keep reassigning as the visitor hovers around; #11780's pulse must
+  // never be affected by any of that.
+  function setFinalSceneEleven780Pending(active) {
+    if (finalSceneRenderer) finalSceneRenderer.setEleven780Pending(active);
   }
 
   if (syncChannel) {
@@ -1767,6 +1779,7 @@
         case "clearFinalScenePersistentLabel": clearFinalScenePersistentLabel(); break;
         case "setFinalSceneTargetHighlight": setFinalSceneTargetHighlight(msg.args && msg.args[0]); break;
         case "clearFinalSceneTargetHighlight": clearFinalSceneTargetHighlight(); break;
+        case "setFinalSceneEleven780Pending": setFinalSceneEleven780Pending(msg.args && msg.args[0]); break;
         case "startFinalSceneAnimation": startFinalSceneAnimation(); break;
       }
     };
@@ -1882,6 +1895,10 @@
     clearFinalSceneTargetHighlight: function () {
       clearFinalSceneTargetHighlight();
       broadcastFieldCall("clearFinalSceneTargetHighlight");
+    },
+    setFinalSceneEleven780Pending: function (active) {
+      setFinalSceneEleven780Pending(active);
+      broadcastFieldCall("setFinalSceneEleven780Pending", [active]);
     },
     clearFinalScenePersistentLabel: function () {
       clearFinalScenePersistentLabel();

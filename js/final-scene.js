@@ -38,11 +38,17 @@
    whichever tier it's told, with no memory of past interactions itself.
 
    setTargetHighlight/clearTargetHighlight draw an in-place ring + size
-   bump on one dot (e.g. the "#11780 placeholder" dot while its popup form
-   is open) without touching anything else on screen — deliberately not a
-   camera zoom/pan, since this scene has none (see above: no zoom, no
-   motion) and everything else needs to stay exactly where it is so
-   exploration of the rest of the scene isn't interrupted.
+   bump on one dot (an incomplete/anonymous "other" dot while its inline
+   editor is open — see stage4-5.js's tryActivateOtherDotEditor) without
+   touching anything else on screen — deliberately not a camera zoom/pan,
+   since this scene has none (see above: no zoom, no motion) and
+   everything else needs to stay exactly where it is so exploration of the
+   rest of the scene isn't interrupted. The fixed "#11780 placeholder" dot
+   gets the same ring treatment but through its own separate mechanism,
+   setEleven780Pending — never setTargetHighlight — precisely so that
+   hovering any OTHER dot (which reassigns setTargetHighlight/
+   highlightDotIndex constantly as the visitor explores) can never steal or
+   drop #11780's own pulse. See setEleven780Pending's own doc comment.
 
    Must load after shared.js, before field.js and stage4-5.js.
    ========================================================================== */
@@ -179,13 +185,31 @@
     var activeTooltipText = null; // { name, story }
     var activeTooltipTier = 1;
 
-    // Item 3c — in-place highlight for the fixed "#11780 placeholder" dot
-    // while the popup form is open: no camera/zoom (the scene has none —
-    // see the file-level doc comment), just a bigger pulse + a ring drawn
-    // on top of that one dot, everything else rendered exactly as normal.
+    // Item 3c — in-place highlight for whichever "other" incomplete/
+    // anonymous dot currently has its inline editor open (see
+    // stage4-5.js's tryActivateOtherDotEditor/activateInlineEditor): no
+    // camera/zoom (the scene has none — see the file-level doc comment),
+    // just a bigger pulse + a ring drawn on top of that one dot, everything
+    // else rendered exactly as normal. NOT used for the fixed "#11780
+    // placeholder" dot — see eleven780Index/eleven780PendingActive below
+    // for its own separate, non-stealable equivalent.
     var highlightDotIndex = null;
     var TARGET_HIGHLIGHT_SCALE_MULTIPLIER = 1.6;
     var TARGET_HIGHLIGHT_RING_PADDING_PX = 5;
+
+    // #11780's own persistent pulse — deliberately a SEPARATE flag from
+    // highlightDotIndex above, not a second use of it. highlightDotIndex is
+    // a shared "one other-dot editor at a time" target that stage4-5.js's
+    // missing-field/anonymous-dot flows repeatedly overwrite as the visitor
+    // hovers around the scene; if #11780 shared that same variable, hovering
+    // any other such dot would silently steal (and, once that dot's own
+    // hover ends, permanently drop) #11780's ring. #11780's own pulse must
+    // survive all of that, indefinitely, until it's actually resolved — so
+    // it gets its own independent index/flag, checked separately in
+    // renderRevealed below, never written to by setTargetHighlight/
+    // clearTargetHighlight.
+    var eleven780Index = computeCenterDotIndex(); // same deterministic index as window.FinalScene.ELEVEN780_PLACEHOLDER_DOT_INDEX
+    var eleven780PendingActive = false;
 
     // Bug fix (round 2, item 1) — the scene must read as visually static
     // until the visitor actually clicks "Explore to get more": every
@@ -293,17 +317,24 @@
       for (var i = 0; i < pattern.length; i++) {
         var color = assignmentsByIndex[i];
         var isHighlighted = i === highlightDotIndex;
+        // #11780's own persistent pending pulse — see eleven780PendingActive's
+        // own doc comment. Independent of isHighlighted/highlightDotIndex on
+        // purpose, so nothing that happens to any OTHER dot's highlight can
+        // ever affect this one.
+        var isEleven780Pending = eleven780PendingActive && i === eleven780Index;
+        var isRinged = isHighlighted || isEleven780Pending;
         // Bug fix (round 7, item 4) — the heartbeat pulse used to be
-        // gated on `color` alone, so the highlighted target dot never
-        // pulsed while it was still unassigned (no entry yet, e.g.
-        // #11780 right after its 15s/9-hover trigger fires, before
-        // anything's been submitted) — it just sat at a flat, static
-        // 1.6x size. The highlight is meant to always pulse, assigned or
-        // not, so it's included in the gate here too.
-        var scale = (color || isHighlighted) ? heartbeatScale(nowMs) : 1;
-        if (isHighlighted) scale *= TARGET_HIGHLIGHT_SCALE_MULTIPLIER;
+        // gated on `color` alone, so a highlighted/pending target dot
+        // never pulsed while it was still unassigned (no entry yet — true
+        // of every incomplete "other" dot mid-edit, and of #11780 for its
+        // entire pending window before it's ever resolved) — it just sat
+        // at a flat, static 1.6x size. Both ring cases are meant to always
+        // pulse, assigned or not, so isRinged is included in the gate here
+        // too, same as isHighlighted alone used to be.
+        var scale = (color || isRinged) ? heartbeatScale(nowMs) : 1;
+        if (isRinged) scale *= TARGET_HIGHLIGHT_SCALE_MULTIPLIER;
         drawDot(i, color || GRAY_DOT_COLOR, scale, alpha);
-        if (isHighlighted) drawTargetHighlightRing(i, DOT_RADIUS_PX * scale, alpha);
+        if (isRinged) drawTargetHighlightRing(i, DOT_RADIUS_PX * scale, alpha);
       }
     }
 
@@ -383,11 +414,13 @@
       // the name/story panel's offset position (see tooltipIconEl's own
       // doc comment above for why it's a separate element in the first
       // place). Round-3 fix: shows for tier 1 regardless of whether this
-      // particular entry has a name (a blank-name-but-colored entry, or a
-      // gray "Anonymous" one, still gets the same invite-to-interact icon
-      // as a fully-named one — the earlier `|| !text.name` here silently
-      // hid it whenever the name was empty, which is exactly the dots
-      // this icon matters most for).
+      // particular entry has a name — the earlier `|| !text.name` here
+      // silently hid it whenever the name was empty. showTooltip/hideTooltip
+      // (and so this icon) are only ever reached for a fully named+storied
+      // dot now (see stage4-5.js's reveal()) — every incomplete/anonymous
+      // "other" dot, missing-field or otherwise, is intercepted earlier by
+      // tryActivateOtherDotEditor and uses its own separate inline-editor
+      // icon instead (stage4-5.js's inlineEditorEls.iconEl).
       tooltipIconEl.hidden = showStory;
       tooltipIconEl.style.left = pos.x + "px";
       tooltipIconEl.style.top = pos.y + "px";
@@ -441,6 +474,14 @@
 
     function clearTargetHighlight() {
       highlightDotIndex = null;
+    }
+
+    // #11780's own persistent pulse toggle — see eleven780PendingActive's
+    // own doc comment. active=true from #11780's activation (timer/hover-
+    // threshold) until it's actually resolved (name and/or story
+    // submitted); nothing else in this file or its callers ever flips it.
+    function setEleven780Pending(active) {
+      eleven780PendingActive = !!active;
     }
 
     // EXPERIMENTAL, item 1 — see the var declarations above.
@@ -509,6 +550,7 @@
       var closestDistSq = hitRadiusPx * hitRadiusPx;
       for (var i = 0; i < pattern.length; i++) {
         if (assignmentsByIndex.hasOwnProperty(i)) continue;
+        if (i === eleven780Index) continue; // #11780 has its own dedicated hit-test — see hitTestEleven780At
         var pos = dotScreenPos(i);
         var dx = pos.x - canvasX;
         var dy = pos.y - canvasY;
@@ -521,12 +563,26 @@
       return closestIndex;
     }
 
-    // EXPERIMENTAL, round-4 test — the #11780 inline-editing mechanism
-    // (stage4-5.js) needs to hit-test specifically against the currently
-    // highlighted dot even though it has no entry yet (setTargetHighlight
-    // marks it before any assignment exists) — a plain, separate check
-    // rather than folding it into hitTestDotAt() above, which stays
-    // scoped to assigned dots only, unchanged.
+    // #11780's own dedicated hit-test, parallel to hitTestHighlightedDotAt
+    // but keyed to the fixed eleven780Index directly rather than the
+    // shared/reassignable highlightDotIndex — this dot no longer ever
+    // calls setTargetHighlight (see eleven780PendingActive's own doc
+    // comment), so hitTestHighlightedDotAt would never find it.
+    function hitTestEleven780At(canvasX, canvasY) {
+      var hitRadiusPx = 20;
+      var pos = dotScreenPos(eleven780Index);
+      var dx = pos.x - canvasX;
+      var dy = pos.y - canvasY;
+      return (dx * dx + dy * dy) <= hitRadiusPx * hitRadiusPx;
+    }
+
+    // stage4-5.js's inline-editing mechanism (tryActivateOtherDotEditor)
+    // needs to hit-test specifically against whichever "other" dot
+    // currently owns the shared highlight, even before it has any entry
+    // (setTargetHighlight marks it before any assignment exists — e.g. a
+    // freshly-claimed anonymous dot) — a plain, separate check rather than
+    // folding it into hitTestDotAt() above, which stays scoped to assigned
+    // dots only, unchanged. Not used for #11780 — see hitTestEleven780At.
     function hitTestHighlightedDotAt(canvasX, canvasY) {
       if (highlightDotIndex === null) return false;
       var hitRadiusPx = 20;
@@ -536,10 +592,10 @@
       return (dx * dx + dy * dy) <= hitRadiusPx * hitRadiusPx;
     }
 
-    // EXPERIMENTAL, round-4 test — lets stage4-5.js position its own
-    // dedicated inline-editor DOM (not the tooltip this file itself
-    // manages) directly on a dot's current on-screen coordinates, the
-    // same math updateTooltipPosition() already uses internally.
+    // Lets stage4-5.js position its own dedicated inline-editor DOM (not
+    // the tooltip this file itself manages) directly on a dot's current
+    // on-screen coordinates, the same math updateTooltipPosition() already
+    // uses internally.
     function getDotScreenPos(dotIndex) {
       return dotScreenPos(dotIndex);
     }
@@ -556,9 +612,11 @@
       startAnimating: startAnimating,
       setTargetHighlight: setTargetHighlight,
       clearTargetHighlight: clearTargetHighlight,
+      setEleven780Pending: setEleven780Pending,
       hitTestDotAt: hitTestDotAt,
       hitTestAnyDotAt: hitTestAnyDotAt,
       hitTestHighlightedDotAt: hitTestHighlightedDotAt,
+      hitTestEleven780At: hitTestEleven780At,
       getDotScreenPos: getDotScreenPos
     };
   }

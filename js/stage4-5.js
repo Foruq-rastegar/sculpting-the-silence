@@ -11,25 +11,41 @@
    runElevenExploreMoment) shows immediately once the scene's dot pattern
    has already appeared on the field (non-interactive, silent — see
    initStage5). The CTA swaps .frame out for the interactive final-scene
-   canvas (beginFinalSceneExploration) — hover/tap now reveals a dot's
-   name+"interact again" icon first, a second click/tap on that same dot
-   its story (see wireFinalSceneInteractions). After ~15s of exploring, OR
-   9 distinct dots hovered, whichever comes first, the fixed, always-the-
-   same dot near the scene's center (window.FinalScene.
-   ELEVEN780_PLACEHOLDER_DOT_INDEX) gets its pulse/ring highlight (same
-   setTargetHighlight treatment as before) and becomes hoverable despite
-   having no entry yet — activateEleven780Target/wireEleven780Target-
-   Interaction. EXPERIMENTAL, round 4 (testing on #11780 only before any
-   wider rollout): no popup — hovering it shows inline placeholder text
-   ("Give them a voice by a name" / "...by a story") in the same tooltip
-   position a named dot's would occupy; a first click swaps those
-   placeholders for real inline `<input>`s; a second click submits
-   whatever was typed, through the exact same resolution mechanism
-   (addEntry/migrateEleven780PlaceholderOccupant/color+note assignment)
-   any other dot's naming already used — colored+named if given a name,
-   same as leaving it blank falls back to today's ordinary blank-name
-   entry (no separate "Anonymous" decline path in this inline version) —
-   and exploration continues uninterrupted throughout.
+   canvas (beginFinalSceneExploration) — hover/tap now reveals a fully
+   named+storied dot's name+"interact again" icon first, a second click/tap
+   on that same dot its story (see wireFinalSceneInteractions/reveal). After
+   10s of exploring, OR 9 distinct dots hovered, whichever comes first, the
+   fixed, always-the-same dot near the scene's center (window.FinalScene.
+   ELEVEN780_PLACEHOLDER_DOT_INDEX) starts pulsing (activateEleven780Target,
+   via final-scene.js's own independent setEleven780Pending ring — kept
+   deliberately separate from every other dot's shared setTargetHighlight,
+   so no other dot's hover can ever steal or drop it) and becomes hoverable
+   despite having no entry yet. Its FIRST hover (activateEleven780Editor)
+   activates its inline editor immediately — real name/story `<input>`s,
+   no intermediate "prompt" step — and is also the moment every other
+   incomplete/anonymous dot's own editor unlocks (otherDotsNamingUnlocked;
+   gated on this hover, not on #11780 actually being resolved). Submitting
+   (name and/or story, via Enter or tapping the dot again) resolves it
+   through the same mechanism any other dot's naming uses
+   (addEntry/migrateEleven780PlaceholderOccupant/color+note assignment) and
+   ends its pending pulse for good — from then on it's a normal colored dot.
+   There is no "abandoned" terminal state for #11780 specifically: once
+   open, its editor stays open (same "editing is sticky" protection every
+   dot's inline editor gets — see the mousemove/mouseleave handlers below —
+   so idle cursor movement never interrupts in-progress typing) until an
+   explicit click elsewhere or a blank submit closes it; either way, that
+   just leaves it pending — pulse continues, re-hoverable indefinitely,
+   until it eventually is resolved. Every OTHER incomplete/anonymous dot (missing a
+   name, missing a story, or fully anonymous/blank — including dots with no
+   entry at all yet) follows the same submission-outcome rules once
+   unlocked, but keeps its own existing "abandon → gray Anonymous" terminal
+   state (see onOtherDotAbandon) and its two-step prompt-then-click-to-edit
+   flow (tryActivateOtherDotEditor) — only #11780 gets the immediate-editor,
+   never-terminally-abandoned treatment. Every colored dot (name and/or
+   story, #11780 or otherwise) pulses continuously from the moment
+   beginFinalSceneExploration's startAnimating() fires, independent of
+   hover — see final-scene.js's renderRevealed. Exploration continues
+   uninterrupted throughout.
    LEGACY (USE_NEW_FINAL_SCENE = false): the old linear flow is left fully
    intact, untouched — s4_mom_22's two-way choice screen
    (runElevenChoiceMoment) into either s4_mom_23's standalone form
@@ -861,11 +877,12 @@
   // written mid-exploration by the popup) CAN appear after this point now
   // (unlike the old linear flow this replaces), so a one-time cache here
   // would go stale.
-  // Item 7 (bug fix, round 2) — lets activateEleven780Target() reset
-  // whatever dot is currently mid-reveal the instant #11780 activates,
-  // without needing to know which dot that is itself
-  // (wireFinalSceneInteractions' own activeDotIndex is private to its
-  // closure) — set once, below.
+  // Item 7 (bug fix, round 2) — lets code OUTSIDE wireFinalSceneInteractions'
+  // own closure (activeDotIndex/hideActive are both private to it) still
+  // reset whatever regular dot is currently mid-reveal: activateEleven780Target
+  // uses it the instant #11780 activates, and activateEleven780Editor uses
+  // it the instant #11780 is actually hovered — neither needs to know
+  // which dot that is itself. Set once, below.
   var finalSceneResetActiveInteractionFn = null;
 
   function wireFinalSceneInteractions(renderer, canvasEl, onDistinctDotRevealed) {
@@ -888,16 +905,17 @@
       return found;
     }
 
-    // Round 7 — "missing story only" / "missing name only": unlike the
-    // fully-unnamed case (which activates on a SECOND click, since tier
-    // 1's own hover already served as its prompt — see reveal()'s
-    // placeholder substitution), these skip the tier system entirely and
-    // activate straight into the dedicated editor's "prompt" on first
-    // hover/tap — there's no "are you sure" gate needed since the dot
-    // already has one real, committed value. hideActive() first in case
-    // some OTHER dot's tier-1/2 tooltip was already showing, so the two
-    // panels never overlap. Returns true if it activated either mode,
-    // false if this entry is already fully resolved (nothing to offer).
+    // Round 7 — "missing story only" / "missing name only", plus (as of
+    // the #11780-spec rewrite) fully anonymous/blank existing entries too
+    // — every OTHER dot category that already has a registry entry but
+    // isn't fully resolved. Unlike the fully-named/storied case (which
+    // uses the plain reveal()/tier system), these skip straight to the
+    // dedicated editor's "prompt" on first hover/tap — there's no "are you
+    // sure" gate needed since the dot already has an entry either way.
+    // hideActive() first in case some OTHER dot's tier-1/2 tooltip was
+    // already showing, so the two panels never overlap. Returns true if it
+    // activated any of the three modes, false if this entry is already
+    // fully resolved (nothing to offer — falls through to reveal()).
     //
     // Bug fix (round 8, item 1) — passes entry.note through as
     // noteFrequency now, so the "first reveal plays the note" rule
@@ -906,17 +924,17 @@
     // addEntry — but showInlineEditorPrompt used to always be told null
     // regardless, so it silently never played).
     //
-    // Deliberately NOT gated on otherDotsNamingUnlocked (unlike the
-    // fully-unnamed case's own call sites below) — see this round's own
-    // notes: a dot can only ever REACH "missing story/name only" shape
-    // via a prior #11780 (or other-dot) resolution, in this run or an
-    // earlier one, so its own shape is already sufficient proof it's
-    // eligible; gating it on THIS run's #11780 state would leave an
-    // already-partial dot from a past run stuck showing nothing (name/
-    // story blank, no placeholder) until #11780 happens to resolve again
-    // this run — the exact "placeholder went missing" bug being fixed
-    // here (item 3).
-    function tryActivateMissingFieldEditor(dotIndex, entry) {
+    // Gating (Step 5 of the #11780 spec): showInlineEditorPrompt() itself
+    // — i.e. the DISPLAY of whatever this dot already has committed
+    // (a real name/story, or the literal word "Anonymous") — is never
+    // gated; a dot's own already-legitimate content is never hidden just
+    // because #11780 hasn't been hovered yet in THIS run. What IS gated is
+    // the "+"-click transition into "editing" (letting the visitor
+    // actually type into the missing field(s)) — see the shared
+    // "prompt -> editing" transition in handleActivationAt/mousemove
+    // below, which checks otherDotsNamingUnlocked before calling
+    // showInlineEditorEditing().
+    function tryActivateOtherDotEditor(dotIndex, entry) {
       if (isMissingStoryOnly(entry)) {
         hideActive();
         activateInlineEditor(dotIndex, {
@@ -939,9 +957,34 @@
         showInlineEditorPrompt();
         return true;
       }
+      // Anonymous (explicitly abandoned, in this run or an earlier one) or
+      // a hypothetical blank-both-non-anonymous entry — see
+      // isUnnamedFinalSceneEntry. Both fields still show as editable once
+      // unlocked (clicking "+" opens name AND story, since neither is a
+      // real authored value the way isMissingStoryOnly/isMissingNameOnly's
+      // single real field is) — "Anonymous" itself is shown as the prompt
+      // display text (a literal, already-committed value, same as a real
+      // name would be) but is NOT locked read-only text in "editing" the
+      // way isMissingStoryOnly/isMissingNameOnly's real field is.
+      if (isUnnamedFinalSceneEntry(entry)) {
+        hideActive();
+        activateInlineEditor(dotIndex, {
+          nameEditable: true, nameText: entry.anonymous ? entry.name : INLINE_EDITOR_NAME_PLACEHOLDER,
+          storyEditable: true, storyText: INLINE_EDITOR_STORY_PLACEHOLDER,
+          onSubmit: onOtherDotSubmit, onAbandon: onOtherDotAbandon,
+          noteFrequency: entry.note
+        });
+        showInlineEditorPrompt();
+        return true;
+      }
       return false;
     }
 
+    // Only ever reached for a fully named+storied dot now — every
+    // incomplete/anonymous "other" dot (missing-field, anonymous/blank, or
+    // entry-less) is intercepted earlier, in mousemove/handleActivationAt,
+    // by tryActivateOtherDotEditor or the anonymous-dot hitTestAnyDotAt
+    // check, both of which return before ever calling this.
     function reveal(dotIndex, tier) {
       var entry = entryAt(dotIndex);
       if (!entry) return;
@@ -949,31 +992,14 @@
       activeDotIndex = dotIndex;
       activeTier = tier;
 
-      // Item 5 (round 5) — once unlocked, a fully unnamed/anonymous dot
-      // shows the same unified placeholders (round 6) as #11780's own
-      // prompt instead of its real (blank, or literally "Anonymous")
-      // content — this tier-1 reveal doubles as that dot's own "prompt"
-      // step, so its second click below jumps straight to "editing"
-      // rather than showing a separate prompt state of its own. A
-      // "missing story only" dot (round 6) never reaches this function at
-      // all — see the mousemove/handleActivationAt branches below, which
-      // route it straight to the dedicated editor's own "prompt" instead,
-      // since its real name has nothing to gate behind a reveal.
-      var displayName = entry.name;
-      var displayStory = entry.story;
-      if (otherDotsNamingUnlocked && isUnnamedFinalSceneEntry(entry)) {
-        displayName = INLINE_EDITOR_NAME_PLACEHOLDER;
-        displayStory = INLINE_EDITOR_STORY_PLACEHOLDER;
-      }
-
-      renderer.showTooltip(dotIndex, displayName, displayStory, tier);
+      renderer.showTooltip(dotIndex, entry.name, entry.story, tier);
       // Sound only ever actually plays on the field side — see field.js's
       // showFinalSceneTooltip/maybePlayFinalSceneNote, gated there on
       // screenMode, not here. Only tier 1 (the first reveal) ever passes a
       // note — advancing to tier 2 on an already-active dot doesn't
       // re-trigger it.
       if (window.Field) {
-        window.Field.showFinalSceneTooltip(dotIndex, displayName, displayStory, tier === 1 ? entry.note : null);
+        window.Field.showFinalSceneTooltip(dotIndex, entry.name, entry.story, tier === 1 ? entry.note : null);
       }
       if (isNewDot && onDistinctDotRevealed) onDistinctDotRevealed(dotIndex);
     }
@@ -991,34 +1017,55 @@
     // Item 4/5 (round 5) — the single decision point for every click/tap
     // on the canvas, in canvas-local coordinates so it can be driven from
     // either a real touchend or the browser's later synthetic click (see
-    // the listeners below). If the inline editor (shared by #11780 and,
-    // once unlocked, any other dot — see stage4-5.js's activateInlineEditor)
-    // is currently targeting something, it owns this click entirely:
-    // hitting its own target advances/submits it, hitting anything else
-    // abandons it (item 4). hitTestHighlightedDotAt covers #11780 (no
-    // registry entry yet, so hitTestDotAt alone would never find it);
-    // hitTestDotAt covers an already-assigned "other" dot mid-edit.
+    // the listeners below). If the inline editor (shared by, once
+    // unlocked, any other dot — see stage4-5.js's activateInlineEditor) is
+    // currently targeting something, it owns this click entirely: hitting
+    // its own target advances/submits it, hitting anything else abandons
+    // it (item 4). hitTestHighlightedDotAt/hitTestEleven780At cover a
+    // target with no registry entry yet (hitTestDotAt alone would never
+    // find it); hitTestDotAt covers an already-assigned "other" dot
+    // mid-edit. #11780 itself is checked first and separately below — it's
+    // no longer part of this shared "one other-dot editor at a time"
+    // targeting at all outside of an open editing session (see
+    // activateEleven780Editor's own doc comment).
     function handleActivationAt(canvasX, canvasY) {
       // Bug fix (round 5) — only while the editor is actually SHOWING
       // (prompt/editing) does it own every click; while merely "hidden"
       // (activated but never yet hovered/tapped — very plausible right
-      // after the 15s/9-hover trigger fires, if the visitor's attention
+      // after the 10s/9-hover trigger fires, if the visitor's attention
       // is elsewhere), a click elsewhere must NOT immediately abandon
       // something the visitor hasn't even noticed yet, and must still
       // fall through to the regular tier system below for whatever was
       // actually clicked.
       if (inlineEditorTargetDotIndex !== null && inlineEditorState !== "hidden") {
         var hitsInlineTarget = renderer.hitTestHighlightedDotAt(canvasX, canvasY) ||
-          renderer.hitTestDotAt(canvasX, canvasY) === inlineEditorTargetDotIndex;
+          renderer.hitTestDotAt(canvasX, canvasY) === inlineEditorTargetDotIndex ||
+          renderer.hitTestEleven780At(canvasX, canvasY);
         if (hitsInlineTarget) {
           if (inlineEditorState === "editing") {
             submitOrAbandonInlineEditor();
-          } else {
+          } else if (otherDotsNamingUnlocked) {
+            // state is "prompt" here — #11780 never reaches this branch
+            // (it skips straight to "editing", see activateEleven780Editor),
+            // so this transition is always some OTHER incomplete/anonymous
+            // dot's "+"-click, which Step 5 gates on #11780's first hover.
             showInlineEditorEditing();
           }
+          // else: still locked — the prompt (display) stays exactly as it
+          // was; the click is simply a no-op until unlocked.
         } else {
           abandonInlineEditor();
         }
+        return;
+      }
+
+      // #11780's own first tap — touch equivalent of hover (see the
+      // mousemove handler below): activates its editor directly, real
+      // <input>s immediately, no "prompt" step. Checked before the
+      // generic hitTestHighlightedDotAt branch below since #11780 no
+      // longer participates in that shared mechanism at all.
+      if (eleven780Pending && renderer.hitTestEleven780At(canvasX, canvasY)) {
+        activateEleven780Editor();
         return;
       }
 
@@ -1036,8 +1083,11 @@
         // anonymous-dot check below: a tap landing within an entry-less
         // dot's hit area, with no assigned dot to explain it, offers the
         // same unclaimed-slot editor (first tap = hover equivalent, same
-        // as the missing-field case above).
-        var anonymousDotIndex = renderer.hitTestAnyDotAt(canvasX, canvasY);
+        // as the missing-field case above). Gated on otherDotsNamingUnlocked
+        // (Step 5) — these dots have no committed content of their own to
+        // display, so unlike missing-field dots, there's nothing to show
+        // pre-unlock; the whole interaction stays inert until then.
+        var anonymousDotIndex = otherDotsNamingUnlocked ? renderer.hitTestAnyDotAt(canvasX, canvasY) : null;
         if (anonymousDotIndex !== null) {
           hideActive();
           activateInlineEditor(anonymousDotIndex, {
@@ -1050,31 +1100,23 @@
           hideActive(); // click/tap on empty space
         }
       } else if (dotIndex === activeDotIndex) {
-        if (activeTier < 2) {
-          var entry = entryAt(dotIndex);
-          if (otherDotsNamingUnlocked && entry && isUnnamedFinalSceneEntry(entry)) {
-            hideActive(); // this dot's own tooltip already showed the placeholders (tier 1, above) — the inline editor's panel takes over from here
-            activateInlineEditor(dotIndex, {
-              nameEditable: true, nameText: INLINE_EDITOR_NAME_PLACEHOLDER,
-              storyEditable: true, storyText: INLINE_EDITOR_STORY_PLACEHOLDER,
-              onSubmit: onOtherDotSubmit, onAbandon: onOtherDotAbandon
-            });
-            showInlineEditorEditing();
-          } else {
-            reveal(dotIndex, 2); // second click/tap on the same dot -> story
-          }
-        }
+        // activeDotIndex is only ever set by reveal() below, which is only
+        // ever reached for a fully named+storied dot now — every
+        // incomplete/anonymous "other" dot is intercepted earlier by
+        // tryActivateOtherDotEditor, so there's nothing left to branch on
+        // here.
+        if (activeTier < 2) reveal(dotIndex, 2); // second click/tap on the same dot -> story
       } else {
-        // Round 6/7 — a "missing story only" or "missing name only" dot
-        // skips the regular tier-1 reveal entirely and activates the
-        // dedicated editor's "prompt" state directly — touch's own
-        // version of the mousemove handler's identical check below,
-        // since touch has no separate hover to catch it there. Not
-        // gated on otherDotsNamingUnlocked (unlike the fully-unnamed
-        // branch above) — see tryActivateMissingFieldEditor's own doc
-        // comment (round 8, item 3) for why.
-        var missingFieldEntry = entryAt(dotIndex);
-        if (!missingFieldEntry || !tryActivateMissingFieldEditor(dotIndex, missingFieldEntry)) {
+        // Round 6/7 — a "missing story only", "missing name only", or
+        // anonymous/blank "other" dot skips the regular tier-1 reveal
+        // entirely and activates the dedicated editor's "prompt" state
+        // directly — touch's own version of the mousemove handler's
+        // identical check below, since touch has no separate hover to
+        // catch it there. tryActivateOtherDotEditor's own DISPLAY is never
+        // gated (see its doc comment) — only the "+"-click transition to
+        // "editing" above is gated on otherDotsNamingUnlocked.
+        var otherDotEntry = entryAt(dotIndex);
+        if (!otherDotEntry || !tryActivateOtherDotEditor(dotIndex, otherDotEntry)) {
           reveal(dotIndex, 1); // touch's own first tap on a not-yet-active dot
         }
       }
@@ -1121,15 +1163,31 @@
       // "prompt" (a plain hover-triggered glance, not yet clicked into) is
       // deliberately NOT included here any more — see
       // hideInlineEditorPromptOnLeave()'s own doc comment for why it used
-      // to be, and the bug that caused.
+      // to be, and the bug that caused. Covers #11780 too, once its own
+      // hover-in below has set it "editing" — same sticky protection.
       if (inlineEditorTargetDotIndex !== null && inlineEditorState === "editing") {
         return;
       }
 
-      // Still hovering the highlighted target (currently only #11780) —
-      // keep/re-show its "prompt", the first of the three steps. Anywhere
-      // else, falls through below, which now clears it (bug fix) instead
-      // of leaving it stuck blocking the rest of the scene.
+      // #11780's own hover-in — checked first and independently of the
+      // shared highlight/target system below (see eleven780Pending's own
+      // doc comment). Goes straight to "editing" (real <input>s, no
+      // "prompt" step) and, on this dot's first-ever hover, unlocks every
+      // other incomplete/anonymous dot's own editor (Step 5). Only runs
+      // once per hover-session: the "editing" sticky guard just above
+      // catches every later mousemove tick while still hovering it, so
+      // this never re-fires (and never re-resets the <input>s' values)
+      // while the visitor is mid-type.
+      if (eleven780Pending && renderer.hitTestEleven780At(canvasX, canvasY)) {
+        activateEleven780Editor();
+        return;
+      }
+
+      // Still hovering the highlighted target (some OTHER incomplete/
+      // anonymous dot, never #11780 any more — see above) — keep/re-show
+      // its "prompt", the first of the three steps. Anywhere else, falls
+      // through below, which now clears it (bug fix) instead of leaving
+      // it stuck blocking the rest of the scene.
       if (inlineEditorTargetDotIndex !== null && renderer.hitTestHighlightedDotAt(canvasX, canvasY)) {
         showInlineEditorPrompt();
         return;
@@ -1157,11 +1215,15 @@
         // be within an "anonymous" one's hit area: no entry at all yet
         // (no name, no story, no color, no note — the untouched
         // background pattern dots). Offer the same unclaimed-slot editor
-        // #11780/unlocked-other-dots already use, on hover alone, same as
-        // the missing-field case. No note plays here (noteFrequency is
-        // omitted -> null -> maybePlayFinalSceneNote's own gate skips it)
-        // since there's nothing recorded yet to have a note.
-        var anonymousDotIndex = renderer.hitTestAnyDotAt(canvasX, canvasY);
+        // used elsewhere, on hover alone, same as the missing-field case.
+        // No note plays here (noteFrequency is omitted -> null ->
+        // maybePlayFinalSceneNote's own gate skips it) since there's
+        // nothing recorded yet to have a note. Gated on
+        // otherDotsNamingUnlocked (Step 5) — nothing is displayed here at
+        // all pre-unlock, since these dots have no committed content of
+        // their own to show (unlike missing-field dots — see
+        // tryActivateOtherDotEditor's own doc comment).
+        var anonymousDotIndex = otherDotsNamingUnlocked ? renderer.hitTestAnyDotAt(canvasX, canvasY) : null;
         if (anonymousDotIndex !== null) {
           hideActive();
           activateInlineEditor(anonymousDotIndex, {
@@ -1177,19 +1239,16 @@
         return;
       }
 
-      // Round 6/7 — a "missing story only" or "missing name only" dot
-      // (one real value already given, the other blank) skips the
-      // regular tier-1 reveal on first hover and goes straight into the
-      // dedicated editor's own "prompt" state (the real value shown as
-      // plain text, the missing one as a placeholder) — unlike a fully-
-      // unnamed dot, there's no "are you sure" gate needed since one
-      // value here is already real/committed, so hover alone is enough
-      // to invite completing the other. Not gated on
-      // otherDotsNamingUnlocked (unlike the fully-unnamed case handled by
-      // reveal()'s own placeholder substitution) — see
-      // tryActivateMissingFieldEditor's own doc comment (round 8, item 3).
-      var missingFieldEntry = entryAt(dotIndex);
-      if (missingFieldEntry && tryActivateMissingFieldEditor(dotIndex, missingFieldEntry)) return;
+      // Round 6/7 — a "missing story only", "missing name only", or
+      // anonymous/blank "other" dot (already has a registry entry, just
+      // not fully resolved) skips the regular tier-1 reveal on first hover
+      // and goes straight into the dedicated editor's own "prompt" state —
+      // the real, already-committed value(s) shown as plain text, the
+      // still-missing one as an invite placeholder. This DISPLAY is never
+      // gated on otherDotsNamingUnlocked — see tryActivateOtherDotEditor's
+      // own doc comment for why (and where the gating actually applies).
+      var otherDotEntry = entryAt(dotIndex);
+      if (otherDotEntry && tryActivateOtherDotEditor(dotIndex, otherDotEntry)) return;
 
       reveal(dotIndex, 1);
     });
@@ -1270,36 +1329,47 @@
 
   /* ------------------------------------------------------------------
      Round 5 — generalized inline editor: one shared mechanism (this
-     section) used both by #11780 (round 4's original test, now promoted
-     out of "#11780-only" status per this round's item 5) and, once
-     unlocked, any other unnamed/anonymous dot. Only one target is ever
-     being edited at a time, so a single set of DOM elements/state is
-     retargeted per activation rather than keeping one instance per dot.
-     No popup, no camera move — keeps the exact same setTargetHighlight
-     pulse/ring treatment for whichever dot is currently targeted. Three
-     states:
-       "hidden"  — just the highlighted, pulsing dot, nothing shown.
-       "prompt"  — hover (or touch's first tap) shows this target's two
-                   placeholder lines in the dot's normal tooltip position,
-                   plus the usual "+" icon on the dot's own coordinates,
-                   same as any other dot's tier-1 icon. Only #11780 ever
-                   actually reaches this state on its own (see
-                   wireFinalSceneInteractions' mousemove handler) — an
-                   "other" dot's tier-1 hover (the REGULAR tier system,
-                   showing these same placeholders once unlocked — see
-                   reveal()) already plays this role, so activating the
-                   editor for one jumps straight to "editing".
-       "editing" — swaps the two placeholder lines for real inline
-                   <input>s (using the same placeholder strings as each
-                   input's own `placeholder` attribute). A second
-                   click/tap, or pressing Enter in either field, submits
-                   whatever was typed — or, if both are still blank,
-                   resolves the same as explicitly leaving without
-                   submitting (item 4, round 5): the target's own
-                   onAbandon callback, always ending up "Anonymous" one
-                   way or another. Clicking/tapping elsewhere while
-                   "prompt" or "editing" also abandons (see
-                   wireFinalSceneInteractions' handleActivationAt).
+     section) for EVERY incomplete/anonymous "other" dot (missing-field,
+     an existing anonymous/blank entry, or a fresh no-entry-at-all dot —
+     see tryActivateOtherDotEditor and the hitTestAnyDotAt call sites) once
+     unlocked, PLUS #11780's own editor panel (activateEleven780Editor) —
+     but #11780 only ever borrows the DOM/state here for its editor's
+     lifetime; its persistent pulse (setEleven780Pending) is entirely
+     separate and never touches this mechanism (see eleven780Pending's own
+     doc comment). Only one target is ever being edited at a time across
+     ALL of these, so a single set of DOM elements/state is retargeted per
+     activation rather than keeping one instance per dot. No popup, no
+     camera move — for an "other" dot, keeps the exact same
+     setTargetHighlight pulse/ring treatment as before; #11780's own ring
+     never comes from here (skipRendererHighlight: true, see
+     activateInlineEditor). Three states:
+       "hidden"  — nothing shown (an "other" dot may still be pulsing via
+                   setTargetHighlight, or #11780 via setEleven780Pending —
+                   both independent of this state).
+       "prompt"  — hover (or touch's first tap) on an "other" dot shows its
+                   two placeholder/real-value lines in the dot's normal
+                   tooltip position, plus the usual "+" icon on the dot's
+                   own coordinates, same as any other dot's tier-1 icon.
+                   #11780 never reaches this state — its first hover
+                   (activateEleven780Editor) jumps straight to "editing".
+       "editing" — real inline <input>s (using each field's placeholder/
+                   real-value text as the input's own `placeholder`
+                   attribute where editable, or plain locked text where
+                   not). A second click/tap, or pressing Enter in either
+                   field, submits whatever was typed — or, if both are
+                   still blank, resolves the same as explicitly leaving
+                   without submitting (item 4, round 5): the target's own
+                   onAbandon callback, if it has one. Every "other" dot's
+                   onAbandon ends up "Anonymous" one way or another;
+                   #11780's is null — no terminal "abandoned" outcome for
+                   it (see eleven780Pending's own doc comment). Clicking/
+                   tapping elsewhere while "prompt" or "editing" also
+                   closes it the same way (see wireFinalSceneInteractions'
+                   handleActivationAt) — "editing" is deliberately sticky
+                   against mere cursor movement, for every target this
+                   mechanism handles, so idle mouse jitter never
+                   interrupts in-progress typing; only an explicit click
+                   elsewhere or a submit/blank-submit ever closes it.
      Field-side mirror is read-only text via the existing
      Field.showFinalSceneTooltip broadcast (the field window is ambient,
      never directly interactive — see CLAUDE.md's screen-split section);
@@ -1307,7 +1377,7 @@
      ------------------------------------------------------------------ */
   var INLINE_EDITOR_OFFSET_Y_PX = 16; // matches final-scene.js's own TOOLTIP_OFFSET_Y_PX
 
-  var inlineEditorTargetDotIndex = null; // set by activateInlineEditor(), cleared once resolved/abandoned
+  var inlineEditorTargetDotIndex = null; // set by activateInlineEditor(), cleared once resolved/abandoned (or, for #11780, once resolved — see its own onAbandon: null)
   var inlineEditorState = "hidden"; // "hidden" | "prompt" | "editing"
   var inlineEditorEls = null;
   var inlineEditorNameEditable = true;  // round 6 — false for "missing story only" dots (see activateInlineEditor)
@@ -1315,8 +1385,8 @@
   var inlineEditorNamePlaceholder = "";  // doubles as "the real, already-given name" when inlineEditorNameEditable is false
   var inlineEditorStoryPlaceholder = ""; // doubles as "the real, already-given story" when inlineEditorStoryEditable is false
   var inlineEditorOnSubmit = null;  // signature depends on which field(s) are editable — see submitOrAbandonInlineEditor
-  var inlineEditorOnAbandon = null; // function(dotIndex) — blank submit, or leaving without submitting, when BOTH fields are editable; never called otherwise (nothing to "abandon" when the dot already has a real name or story)
-  var inlineEditorNoteFrequency = null; // round 8, item 1 — the dot's already-assigned note (missing story/name only cases); null when there's no entry/note yet (#11780's own first prompt, or a fully unnamed dot)
+  var inlineEditorOnAbandon = null; // function(dotIndex) — blank submit, or leaving without submitting, when BOTH fields are editable; never called otherwise (nothing to "abandon" when the dot already has a real name or story, or for #11780, which has no abandon outcome at all)
+  var inlineEditorNoteFrequency = null; // round 8, item 1 — the dot's already-assigned note (missing story/name only, or a resubmitted anonymous, dot); null when there's nothing to play yet (a fresh no-entry dot, or #11780 before it's ever been resolved)
 
   // Reuses .final-scene__tooltip's own look (dark blurred panel) and the
   // regular tier-1 icon's classname for visual consistency — a SEPARATE
@@ -1414,7 +1484,7 @@
       // plays the note" rule (see reveal()'s own note-gating) silently
       // never applied to this whole prompt path. inlineEditorNoteFrequency
       // is set per activation — see activateInlineEditor's own doc
-      // comment and tryActivateMissingFieldEditor above.
+      // comment and tryActivateOtherDotEditor above.
       window.Field.showFinalSceneTooltip(inlineEditorTargetDotIndex, inlineEditorNamePlaceholder, inlineEditorStoryPlaceholder, inlineEditorNoteFrequency);
     }
   }
@@ -1488,34 +1558,32 @@
 
   // Bug fix — the cursor leaving a dot's hover area must hide that dot's
   // name/story text immediately, same rule as the regular reveal()/
-  // hideActive() path, but this "prompt" state (round 6/7's missing-story-
-  // only/missing-name-only dots, and #11780's own highlighted-target
-  // glance) lives in a completely separate state machine
-  // (inlineEditorTargetDotIndex/inlineEditorState), which the hideActive()
-  // fix never touched — so its panel used to stay rendered indefinitely
-  // after hover ended, AND every mousemove handler call above still saw
-  // inlineEditorState !== "hidden" and returned immediately, silently
-  // blocking every OTHER dot's hover (text and note) until an unrelated
-  // click happened to land on/off the stuck target.
+  // hideActive() path, but this "prompt" state (tryActivateOtherDotEditor's
+  // missing-story-only/missing-name-only/anonymous dots) lives in a
+  // completely separate state machine (inlineEditorTargetDotIndex/
+  // inlineEditorState), which the hideActive() fix never touched — so its
+  // panel used to stay rendered indefinitely after hover ended, AND every
+  // mousemove handler call above still saw inlineEditorState !== "hidden"
+  // and returned immediately, silently blocking every OTHER dot's hover
+  // (text and note) until an unrelated click happened to land on/off the
+  // stuck target.
   //
   // Only ever called while state is "prompt" (a plain hover-triggered
   // glance) — "editing" (a focused <input>, reached only via an explicit
   // click) stays sticky on purpose, unaffected by hover moving elsewhere.
   //
-  // Missing-field dots (onAbandon: null, see tryActivateMissingFieldEditor)
-  // have no persistent-invitation semantics of their own — the highlight
-  // ring and target index were only ever set up for THIS glance, so they're
-  // torn down fully (clearInlineEditorTarget too) leaving zero residual
-  // state to interfere with the next dot hovered. #11780's own prompt
-  // (onAbandon set) keeps its target/ring — that's a standing invitation
-  // independent of any one glance, not something un-hovering it should
-  // cancel; only hiding its panel is appropriate here.
+  // Always a full clear now (hideInlineEditor AND clearInlineEditorTarget):
+  // none of the "other dot" categories that ever reach "prompt" have any
+  // persistent-invitation semantics of their own — the highlight ring and
+  // target index were only ever set up for THIS glance. #11780 is the one
+  // dot that DOES need to survive being un-hovered, but it no longer goes
+  // through "prompt" at all any more (see activateEleven780Editor — first
+  // hover skips straight to "editing") and its ring is driven entirely
+  // independently (eleven780Pending), so it's not a concern here.
   function hideInlineEditorPromptOnLeave() {
     if (inlineEditorState !== "prompt") return;
     hideInlineEditor();
-    if (!inlineEditorOnAbandon) {
-      clearInlineEditorTarget();
-    }
+    clearInlineEditorTarget();
   }
 
   // Second click/tap on "+", or Enter in either field. Blank submit
@@ -1572,17 +1640,24 @@
   // recurring placeholder index; for an "other" dot, whichever one the
   // visitor's second click (or, for "missing story/name only", first
   // hover) landed on. options: { nameEditable, nameText, storyEditable,
-  // storyText, onSubmit, onAbandon, noteFrequency } — an options object
-  // rather than more positional params now that both fields can
-  // independently be editable or fixed. nameText/storyText: a placeholder
-  // string when that field IS editable; the dot's REAL, already-given
-  // value when it's NOT (round 6/7 — stays plain read-only text
-  // throughout, see showInlineEditorEditing). onSubmit/onAbandon: how
+  // storyText, onSubmit, onAbandon, noteFrequency, skipRendererHighlight }
+  // — an options object rather than more positional params now that both
+  // fields can independently be editable or fixed. nameText/storyText: a
+  // placeholder string when that field IS editable; the dot's REAL,
+  // already-given value when it's NOT (round 6/7 — stays plain read-only
+  // text throughout, see showInlineEditorEditing). onSubmit/onAbandon: how
   // that specific target resolves the registry — differs per mode (see
   // onEleven780Submit/onOtherDotSubmit/onOtherDotStoryOnlySubmit/
   // onOtherDotNameOnlySubmit below). noteFrequency (round 8, item 1): the
-  // entry's already-assigned note, if any — omitted/null for #11780's own
-  // first prompt or a fully-unnamed dot (no entry yet, nothing to play).
+  // entry's already-assigned note, if any — omitted/null for a fully-
+  // unnamed dot (no entry yet, nothing to play) or #11780 (never has a
+  // note before it's resolved). skipRendererHighlight: #11780 only — its
+  // ring/pulse is driven independently (renderer.setEleven780Pending, see
+  // that function's own doc comment), so its own activation must NOT also
+  // write to the shared setTargetHighlight/highlightDotIndex the "other
+  // dot" flows below repeatedly reassign as the visitor hovers around —
+  // that's exactly the shared state that used to let another dot's hover
+  // steal and then permanently drop #11780's ring.
   function activateInlineEditor(dotIndex, options) {
     inlineEditorTargetDotIndex = dotIndex;
     inlineEditorNameEditable = options.nameEditable;
@@ -1593,13 +1668,14 @@
     inlineEditorOnAbandon = options.onAbandon;
     inlineEditorNoteFrequency = options.noteFrequency || null;
 
+    if (options.skipRendererHighlight) return;
     var renderer = getFinalSceneRenderer();
     renderer.setTargetHighlight(dotIndex);
     if (window.Field) window.Field.setFinalSceneTargetHighlight(dotIndex);
   }
 
   // Round 6 — unified placeholder copy, used everywhere an empty name or
-  // story field appears: #11780's own prompt, any other fully unnamed/
+  // story field appears: #11780's own editor, any other fully unnamed/
   // anonymous dot (once unlocked), and a "missing story only" dot's story
   // line. One shared pair rather than a separate copy per case, so the
   // wording can never drift out of sync between them.
@@ -1621,30 +1697,37 @@
     // effectively would if it had no linked channel dot.
     var entry = addEntry("#11780", nameValue, storyValue, false, dotIndex);
     if (PERSIST_OWN_ENTRY_LABEL && entry.name) {
-      var renderer = getFinalSceneRenderer();
-      renderer.setPersistentLabel(dotIndex, entry.name);
+      var persistRenderer = getFinalSceneRenderer();
+      persistRenderer.setPersistentLabel(dotIndex, entry.name);
       if (window.Field) window.Field.setFinalScenePersistentLabel(dotIndex, entry.name);
     }
-    otherDotsNamingUnlocked = true; // item 5 — see its own doc comment below
+    // #11780 is now resolved — this is the ONLY thing that ever ends its
+    // pending state (see eleven780Pending's own doc comment): no terminal
+    // "abandoned" outcome exists for #11780 specifically (unlike every
+    // other incomplete/anonymous dot, which still can be — see
+    // onOtherDotAbandon below). It now becomes a normal colored dot,
+    // following the same universal pulse-while-colored rule every other
+    // named/storied dot already gets from renderRevealed's own `color`
+    // check — nothing further to wire up for that part.
+    eleven780Pending = false;
+    var renderer = getFinalSceneRenderer();
+    renderer.setEleven780Pending(false);
+    if (window.Field) window.Field.setFinalSceneEleven780Pending(false);
   }
 
-  // Item 4 (round 5) — blank submit or leaving without submitting: same
-  // gray "Anonymous" entry the old decline button used to write, still
-  // going through the recurring-slot migration first (a leftover
-  // occupant is still possible in principle, even after item 1's
-  // proactive migration at run-start — e.g. another abandon earlier this
-  // same run).
-  function onEleven780Abandon(dotIndex) {
-    migrateEleven780PlaceholderOccupant(dotIndex);
-    addEntry("#11780", "Anonymous", "", true, dotIndex);
-    otherDotsNamingUnlocked = true; // item 5 — see its own doc comment below
-  }
-
-  // Called once, when the 15s/9-hover trigger fires (see
+  // Called once, when the 10s/9-hover trigger fires (see
   // beginFinalSceneExploration). No dynamic repositioning needed here —
   // that was only ever about dodging round 2's old popup panel (round 3,
   // item 1), which this mechanism has no equivalent of — so it's always
   // the plain fixed "nearest to center" index.
+  //
+  // Deliberately does NOT call activateInlineEditor here any more — that
+  // used to pre-arm the shared "other dot" target/highlight before any
+  // hover happened, which is exactly the state a later hover on some OTHER
+  // incomplete dot would steal. #11780's ring is now driven independently
+  // (eleven780Pending/setEleven780Pending) and its editor only gets set up
+  // on demand, the instant it's actually hovered — see
+  // activateEleven780Editor below.
   function activateEleven780Target() {
     // Item 7 (bug fix, round 2) — whatever dot was mid-reveal right as
     // #11780 activates (very plausible: the hover-count trigger fires
@@ -1652,26 +1735,66 @@
     // never showing alongside the newly-highlighted #11780 dot.
     if (finalSceneResetActiveInteractionFn) finalSceneResetActiveInteractionFn();
 
+    eleven780Pending = true;
+    var renderer = getFinalSceneRenderer();
+    renderer.setEleven780Pending(true);
+    if (window.Field) window.Field.setFinalSceneEleven780Pending(true);
+  }
+
+  // First hover (or first tap) on #11780 itself — skips the two-step
+  // prompt-then-click-to-edit flow every other dot category uses: real
+  // name/story <input>s appear immediately. Also the moment every other
+  // incomplete/anonymous dot's own inline editor unlocks (Step 5 — tied to
+  // #11780 being HOVERED, not resolved, so a visitor who opens this and
+  // leaves without submitting anything still unlocks the rest of the
+  // scene). Guarded by the caller (mousemove/handleActivationAt) to only
+  // ever run once per hover-session — see their own comments — since
+  // showInlineEditorEditing() resets the <input>s' values every time it
+  // runs, which would erase in-progress typing if this re-fired on every
+  // mousemove tick while already hovering.
+  //
+  // Bug fix — calls finalSceneResetActiveInteractionFn() rather than
+  // hideActive() directly: hideActive is private to wireFinalSceneInteractions'
+  // own closure (same reason activateEleven780Target above uses it too),
+  // and this function lives outside that closure. Calling hideActive()
+  // directly threw a silent ReferenceError on every attempt, which is why
+  // hovering #11780 appeared to do nothing at all — the pulse/hit-test
+  // were both working correctly; this was the only broken link.
+  function activateEleven780Editor() {
+    otherDotsNamingUnlocked = true;
+    if (finalSceneResetActiveInteractionFn) finalSceneResetActiveInteractionFn();
     activateInlineEditor(window.FinalScene.ELEVEN780_PLACEHOLDER_DOT_INDEX, {
       nameEditable: true,
       nameText: INLINE_EDITOR_NAME_PLACEHOLDER,
       storyEditable: true,
       storyText: INLINE_EDITOR_STORY_PLACEHOLDER,
       onSubmit: onEleven780Submit,
-      onAbandon: onEleven780Abandon
+      onAbandon: null, // no terminal "abandoned" outcome for #11780 — see eleven780Pending's own doc comment
+      skipRendererHighlight: true
     });
+    showInlineEditorEditing();
   }
 
   /* ------------------------------------------------------------------
      Item 5 (round 5) — the same generalized editor, applied to every
-     OTHER unnamed/anonymous dot, unlocked only once #11780 itself has
-     resolved (submit or abandon — see onEleven780Submit/onEleven780Abandon
-     above). Activation itself happens from wireFinalSceneInteractions'
-     own tier1->tier2 click transition (that dot's tier-1 hover already
-     doubles as this editor's "prompt" step — see reveal()'s placeholder
-     substitution there), not from a dedicated trigger of its own.
+     OTHER incomplete/anonymous dot. Unlocked the moment #11780 is first
+     HOVERED (activateEleven780Editor above), not once it's resolved — a
+     visitor who opens #11780's editor and leaves without submitting
+     anything still unlocks the rest of the scene. Until unlocked, these
+     dots still DISPLAY whatever value they already have committed (that
+     part is never gated — see tryActivateOtherDotEditor's own doc
+     comment); only the "+"-click-to-edit transition is gated on this flag.
      ------------------------------------------------------------------ */
   var otherDotsNamingUnlocked = false;
+
+  // #11780's own persistent pending flag — true from activateEleven780Target
+  // (the 10s-timer/9-hover trigger) until onEleven780Submit actually
+  // resolves it (name and/or story submitted); there is no "abandoned"
+  // path that clears it (see activateEleven780Editor's onAbandon: null).
+  // Drives final-scene.js's own independent eleven780PendingActive ring —
+  // never the shared setTargetHighlight/highlightDotIndex the "other dot"
+  // flows below use, so no other dot's hover can ever steal or drop it.
+  var eleven780Pending = false;
 
   // Round 7 fix — narrowed to BOTH fields blank (or explicitly
   // anonymous): used to also catch "has a story but no name" here, which
