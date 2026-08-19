@@ -1387,6 +1387,7 @@
   var inlineEditorOnSubmit = null;  // signature depends on which field(s) are editable — see submitOrAbandonInlineEditor
   var inlineEditorOnAbandon = null; // function(dotIndex) — blank submit, or leaving without submitting, when BOTH fields are editable; never called otherwise (nothing to "abandon" when the dot already has a real name or story, or for #11780, which has no abandon outcome at all)
   var inlineEditorNoteFrequency = null; // round 8, item 1 — the dot's already-assigned note (missing story/name only, or a resubmitted anonymous, dot); null when there's nothing to play yet (a fresh no-entry dot, or #11780 before it's ever been resolved)
+  var inlineEditorShowNameLabel = false; // true only for #11780's own editor — see activateEleven780Editor's showNameLabel option
 
   // Reuses .final-scene__tooltip's own look (dark blurred panel) and the
   // regular tier-1 icon's classname for visual consistency — a SEPARATE
@@ -1399,6 +1400,13 @@
 
     var panelEl = document.createElement("div");
     panelEl.className = "final-scene__tooltip final-scene__tooltip--inline-editor"; // round 7, item 3 — see the modifier's own CSS doc comment
+
+    // #11780-only — see activateInlineEditor's showNameLabel option;
+    // hidden by default, only ever un-hidden for #11780's own editor.
+    var nameLabelEl = document.createElement("p");
+    nameLabelEl.className = "final-scene__tooltip-name-label";
+    nameLabelEl.textContent = INLINE_EDITOR_NAME_LABEL;
+    nameLabelEl.hidden = true;
 
     var nameTextEl = document.createElement("p");
     nameTextEl.className = "final-scene__tooltip-name";
@@ -1414,6 +1422,7 @@
     storyInputEl.className = "final-scene__inline-editor-input";
     storyInputEl.hidden = true;
 
+    panelEl.appendChild(nameLabelEl);
     panelEl.appendChild(nameTextEl);
     panelEl.appendChild(nameInputEl);
     panelEl.appendChild(storyTextEl);
@@ -1443,6 +1452,7 @@
 
     inlineEditorEls = {
       panelEl: panelEl,
+      nameLabelEl: nameLabelEl,
       nameTextEl: nameTextEl,
       nameInputEl: nameInputEl,
       storyTextEl: storyTextEl,
@@ -1467,6 +1477,7 @@
     var els = getOrCreateInlineEditor();
     positionInlineEditor();
 
+    els.nameLabelEl.hidden = !inlineEditorShowNameLabel;
     els.nameTextEl.textContent = inlineEditorNamePlaceholder;
     els.nameTextEl.hidden = false;
     els.nameInputEl.hidden = true;
@@ -1493,6 +1504,8 @@
     inlineEditorState = "editing";
     var els = getOrCreateInlineEditor();
     positionInlineEditor();
+
+    els.nameLabelEl.hidden = !inlineEditorShowNameLabel;
 
     // Round 6/7 — a "missing story only" dot's name (or a "missing name
     // only" dot's story — round 7's mirror case) is real and already
@@ -1667,6 +1680,7 @@
     inlineEditorOnSubmit = options.onSubmit;
     inlineEditorOnAbandon = options.onAbandon;
     inlineEditorNoteFrequency = options.noteFrequency || null;
+    inlineEditorShowNameLabel = !!options.showNameLabel;
 
     if (options.skipRendererHighlight) return;
     var renderer = getFinalSceneRenderer();
@@ -1679,8 +1693,13 @@
   // anonymous dot (once unlocked), and a "missing story only" dot's story
   // line. One shared pair rather than a separate copy per case, so the
   // wording can never drift out of sync between them.
-  var INLINE_EDITOR_NAME_PLACEHOLDER = "Give them a voice by a name";
-  var INLINE_EDITOR_STORY_PLACEHOLDER = "Call them out of the silence by a story";
+  var INLINE_EDITOR_NAME_PLACEHOLDER = "Give them a name";
+  var INLINE_EDITOR_STORY_PLACEHOLDER = "Recall them by story";
+
+  // #11780-only label shown above the name field — see
+  // activateEleven780Editor's own showNameLabel option below; every other
+  // dot's editor never passes it, so this text never appears there.
+  var INLINE_EDITOR_NAME_LABEL = "To call them out of silence";
 
   /* ------------------------------------------------------------------
      #11780's own configuration of the generalized editor above.
@@ -1770,7 +1789,8 @@
       storyText: INLINE_EDITOR_STORY_PLACEHOLDER,
       onSubmit: onEleven780Submit,
       onAbandon: null, // no terminal "abandoned" outcome for #11780 — see eleven780Pending's own doc comment
-      skipRendererHighlight: true
+      skipRendererHighlight: true,
+      showNameLabel: true // #11780 only — see INLINE_EDITOR_NAME_LABEL's own doc comment
     });
     showInlineEditorEditing();
   }

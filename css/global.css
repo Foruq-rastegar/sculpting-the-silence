@@ -1078,14 +1078,26 @@ html.frame-hidden .frame {
 
 /* Bug fix (round 7, item 3) — the inline name/story editor (stage4-5.js:
    activateInlineEditor) reuses .final-scene__tooltip's own panel for its
-   look, but its unified placeholder copy ("Call them out of the silence
-   by a story" etc.) is longer than any real name/story this panel was
-   originally sized for, and was getting clipped inside the regular
-   tooltip's 240px cap. This modifier only widens the panel when it's
-   actually being used as the editor — the plain read-only tooltip (every
-   other final-scene hover) keeps its original narrower width. */
+   look, but its placeholder copy plus real, unbounded-length visitor-
+   entered names/stories are longer than this panel was originally sized
+   for, and were getting clipped inside the regular tooltip's 240px cap.
+   This modifier only widens the panel when it's actually being used as
+   the editor — the plain read-only tooltip (every other final-scene
+   hover) keeps its original narrower width. */
 .final-scene__tooltip--inline-editor {
   max-width: min(88vw, 320px);
+}
+
+/* #11780-only label above the name field (stage4-5.js:
+   INLINE_EDITOR_NAME_LABEL / activateEleven780Editor's showNameLabel
+   option) — every other dot's editor leaves this hidden. */
+.final-scene__tooltip-name-label {
+  margin: 0 0 2px;
+  font-family: var(--font-family);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--color-fg);
+  opacity: 0.6;
 }
 
 .final-scene__tooltip-name {
@@ -1176,6 +1188,7 @@ html.frame-hidden .frame {
   display: none;
 }
 
+.final-scene__tooltip-name-label[hidden],
 .final-scene__tooltip-name[hidden],
 .final-scene__tooltip-story[hidden],
 .final-scene__tooltip-icon[hidden] {
