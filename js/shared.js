@@ -217,7 +217,7 @@
 
   // Round 7, item 1 — global from stage 2 onward (see goToStage() above),
   // not just the final screen.
-  var GLOBAL_IDLE_RESET_MS = 30000;
+  var GLOBAL_IDLE_RESET_MS = 60000; // 1 minute — was 30s
   var globalIdleResetStarted = false;
 
   // Starts (or restarts) a timer that calls onIdle after timeoutMs of no
