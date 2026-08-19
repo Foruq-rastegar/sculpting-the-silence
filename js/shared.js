@@ -496,6 +496,85 @@
   STS.createMomentContentBox = createMomentContentBox;
 
   /* ------------------------------------------------------------------
+     Boundary-aware anchored panel positioning — shared by final-scene.js's
+     own read-only tooltip and stage4-5.js's inline name/story editor, both
+     of which anchor a fixed-position DOM panel to a dot's on-screen
+     coordinates using the same CSS convention: `transform: translate(-50%,
+     0)` (horizontally self-centered on `left`, top edge sits exactly at
+     `top` with no vertical offset, extending downward by its own height).
+     A dot near a viewport edge or corner would otherwise render that panel
+     partly or fully off-screen — this clamps/flips it back into view
+     instead, regardless of how close to an edge the anchor point actually
+     is (so it's a real safety net even for already-committed entries whose
+     dot position can't retroactively move). Caller must have already set
+     the panel's real content (text/hidden toggles) before calling, since
+     the clamp measures actual rendered size via getBoundingClientRect().
+     ------------------------------------------------------------------ */
+  var ANCHORED_PANEL_VIEWPORT_MARGIN_PX = 8;
+
+  function positionAnchoredPanel(panelEl, anchorX, anchorY, offsetY) {
+    var margin = ANCHORED_PANEL_VIEWPORT_MARGIN_PX;
+    var viewportW = window.innerWidth;
+    var viewportH = window.innerHeight;
+
+    // Measure the panel's natural (shrink-to-fit) width at left:0 first,
+    // then freeze it as an explicit width, rather than measuring at the
+    // real anchor position and leaving `width` as CSS "auto". A
+    // position:fixed box with `left` set and `right` left auto derives
+    // its shrink-to-fit "available width" FROM `left` itself (CSS 2.1
+    // 10.3.7) — so measuring at a possibly edge-hugging anchor first,
+    // then later moving `left` for the horizontal clamp below, could
+    // silently change how the text wraps (and so its rendered width AND
+    // height) between the measurement and the final position, making the
+    // vertical clamp math run against a stale height. left:0 always gives
+    // shrink-to-fit the most available width it could ever have
+    // (viewportW), so the measured width reflects only the panel's own
+    // CSS max-width/content — never wherever it happens to land — and an
+    // explicit width then keeps it that way through every later move.
+    // style.width is reset to "auto" first since this same panel element
+    // is reused call to call with different content/lengths each time.
+    panelEl.style.width = "";
+    panelEl.style.left = "0px";
+    panelEl.style.top = "0px";
+    var naturalWidth = panelEl.getBoundingClientRect().width;
+    panelEl.style.width = naturalWidth + "px";
+    var rect = panelEl.getBoundingClientRect(); // height only, from here on — width is now fixed
+
+    // Horizontal — `left` is the panel's own center (translate(-50%, 0)),
+    // so its true edges are left ± width/2. Shift that center just enough
+    // to keep both edges within [margin, viewportW - margin]; a panel
+    // wider than the viewport (minus margins) is centered in whatever
+    // space remains rather than clamped hard against one side.
+    var halfWidth = naturalWidth / 2;
+    var left = anchorX;
+    if (naturalWidth >= viewportW - margin * 2) {
+      left = viewportW / 2;
+    } else if (left - halfWidth < margin) {
+      left = margin + halfWidth;
+    } else if (left + halfWidth > viewportW - margin) {
+      left = viewportW - margin - halfWidth;
+    }
+
+    // Vertical — no transform offset, so `top` is the panel's true
+    // rendered top edge, extending downward by its own height. If the
+    // normal below-the-anchor placement would overflow the bottom edge,
+    // flip to render above the anchor instead (mirroring offsetY so the
+    // visual gap from the dot stays consistent either way); clamp within
+    // the viewport as a last resort for a panel taller than the space on
+    // either side allows.
+    var top = anchorY + offsetY;
+    if (top + rect.height > viewportH - margin) {
+      var above = anchorY - offsetY - rect.height;
+      top = (above >= margin) ? above : Math.max(margin, viewportH - margin - rect.height);
+    }
+
+    panelEl.style.left = left + "px";
+    panelEl.style.top = top + "px";
+  }
+
+  STS.positionAnchoredPanel = positionAnchoredPanel;
+
+  /* ------------------------------------------------------------------
      Message moment — reusable "attempt ladder" component: types a
      message, shows a CTA button, and on click runs a spinner for a
      configured number of visible rotations before revealing that

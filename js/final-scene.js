@@ -65,7 +65,7 @@
   // quiet background texture rather than competing with assigned ones.
   var GRAY_DOT_COLOR = "#404040";
   var DOT_RADIUS_PX = 2.5;       // unassigned dots, and an assigned dot's un-pulsed base radius
-  var EDGE_MARGIN_PERCENT = 4;   // keep dots off the very edge of whichever canvas renders them
+  var EDGE_MARGIN_PERCENT = 10;  // keep dots off the very edge of whichever canvas renders them — widened from 4 so a dot's tooltip/inline-editor has more room before ever needing to flip/clamp (see shared.js's positionAnchoredPanel, which handles the remaining cases regardless)
 
   var HEARTBEAT_MIN_SCALE = 0.5;
   var HEARTBEAT_MAX_SCALE = 2.0;
@@ -406,8 +406,9 @@
       tooltipStoryEl.hidden = !showStory || !text.story;
 
       var pos = dotScreenPos(dotIndex);
-      tooltipEl.style.left = pos.x + "px";
-      tooltipEl.style.top = (pos.y + TOOLTIP_OFFSET_Y_PX) + "px";
+      // Boundary-aware — see shared.js's positionAnchoredPanel doc comment;
+      // keeps this panel fully on-screen even for a dot near an edge/corner.
+      window.STS.positionAnchoredPanel(tooltipEl, pos.x, pos.y, TOOLTIP_OFFSET_Y_PX);
       tooltipEl.classList.add("final-scene__tooltip--visible");
 
       // Item 2 (bug fix) — positioned at the dot's own coordinates, not

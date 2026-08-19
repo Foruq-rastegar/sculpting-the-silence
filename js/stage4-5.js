@@ -593,7 +593,7 @@
 
   var COLLECTIVE_BOARD_NAME_SATURATION = 70; // %
   var COLLECTIVE_BOARD_NAME_LIGHTNESS = 65; // % — stays readable on black
-  var COLLECTIVE_BOARD_EDGE_MARGIN_PERCENT = 6; // keep names off the very edge
+  var COLLECTIVE_BOARD_EDGE_MARGIN_PERCENT = 10; // keep names off the very edge — widened from 6 to match final-scene.js's own EDGE_MARGIN_PERCENT
   var COLLECTIVE_BOARD_ANONYMOUS_COLOR = "hsl(0, 0%, 55%)"; // gray, no hue — the "Anonymous #11780" entry only
 
   // A-minor pentatonic (A C D E G) across 3 octaves — every combination of
@@ -1462,12 +1462,18 @@
     return inlineEditorEls;
   }
 
+  // Must be called AFTER the panel's real content (text/hidden toggles)
+  // is set — see shared.js's positionAnchoredPanel doc comment, it
+  // measures the panel's actual rendered size to stay boundary-aware.
+  // The icon stays simply centered on the dot itself (unclamped): it's
+  // pointer-events:none and purely decorative (real hit-testing is
+  // canvas-coordinate-based, see final-scene.js), so there's nothing to
+  // read or interact with there even at the very edge of the viewport.
   function positionInlineEditor() {
     var renderer = getFinalSceneRenderer();
     var pos = renderer.getDotScreenPos(inlineEditorTargetDotIndex);
     var els = getOrCreateInlineEditor();
-    els.panelEl.style.left = pos.x + "px";
-    els.panelEl.style.top = (pos.y + INLINE_EDITOR_OFFSET_Y_PX) + "px";
+    window.STS.positionAnchoredPanel(els.panelEl, pos.x, pos.y, INLINE_EDITOR_OFFSET_Y_PX);
     els.iconEl.style.left = pos.x + "px";
     els.iconEl.style.top = pos.y + "px";
   }
@@ -1475,7 +1481,6 @@
   function showInlineEditorPrompt() {
     inlineEditorState = "prompt";
     var els = getOrCreateInlineEditor();
-    positionInlineEditor();
 
     els.nameLabelEl.hidden = !inlineEditorShowNameLabel;
     els.nameTextEl.textContent = inlineEditorNamePlaceholder;
@@ -1484,6 +1489,11 @@
     els.storyTextEl.textContent = inlineEditorStoryPlaceholder;
     els.storyTextEl.hidden = false;
     els.storyInputEl.hidden = true;
+
+    // Positioned only once the panel's real content above is in place —
+    // positionInlineEditor measures the panel's actual rendered size to
+    // stay boundary-aware, so it must run after content, not before.
+    positionInlineEditor();
     els.panelEl.classList.add("final-scene__tooltip--visible");
     els.iconEl.hidden = false;
 
@@ -1503,7 +1513,6 @@
   function showInlineEditorEditing() {
     inlineEditorState = "editing";
     var els = getOrCreateInlineEditor();
-    positionInlineEditor();
 
     els.nameLabelEl.hidden = !inlineEditorShowNameLabel;
 
@@ -1536,6 +1545,9 @@
       els.storyInputEl.hidden = true;
     }
 
+    // Positioned only once the panel's real content above is in place —
+    // see showInlineEditorPrompt's own comment on this same ordering.
+    positionInlineEditor();
     els.panelEl.classList.add("final-scene__tooltip--visible");
     els.iconEl.hidden = false;
 
